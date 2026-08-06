@@ -1,0 +1,64 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-surface-950: var(--theme-surface-950, #0a0a0f);
+  --color-surface-900: var(--theme-surface-900, #12121a);
+  --color-surface-800: var(--theme-surface-800, #1a1a26);
+  --color-surface-700: var(--theme-surface-700, #252533);
+  --color-surface-600: var(--theme-surface-600, #32324a);
+  --color-accent-500: var(--theme-accent-500, #6366f1);
+  --color-accent-400: var(--theme-accent-400, #818cf8);
+  --color-accent-300: var(--theme-accent-300, #a5b4fc);
+  --color-success-500: var(--theme-success-500, #22c55e);
+  --color-error-500: var(--theme-error-500, #ef4444);
+  --color-warning-500: var(--theme-warning-500, #f59e0b);
+  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--color-surface-950);
+  color: #f1f5f9;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus {
+  outline: none;
+}
+
+[data-focusable='true']:focus-visible,
+[data-focusable='true'].focused {
+  box-shadow:
+    0 0 0 3px var(--theme-focus-ring, var(--color-accent-500)),
+    0 0 24px var(--theme-focus-glow, rgba(99, 102, 241, 0.45));
+  transform: scale(1.04);
+  z-index: 10;
+}
+
+[data-focusable='true'] {
+  transition:
+    transform 120ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 120ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 120ms ease;
+  will-change: transform;
+}
+
+.scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}

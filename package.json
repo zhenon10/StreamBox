@@ -1,0 +1,51 @@
+{
+  "name": "streambox-tv",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run simulator",
+    "simulator": "node scripts/simulator.mjs",
+    "simulator:build": "node scripts/simulator.mjs build",
+    "simulator:run": "node scripts/simulator.mjs run",
+    "tv": "node scripts/tv.mjs",
+    "tv:package": "node scripts/package-webos.mjs",
+    "tv:install": "node scripts/install-webos.mjs",
+    "tv:launch": "node scripts/launch-webos.mjs",
+    "build": "tsc -b && vite build --mode production",
+    "lint": "eslint .",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "preview": "vite preview",
+    "package:webos": "npm run tv:package",
+    "license:server": "node license-server/index.mjs",
+    "tv:icons": "node scripts/generate-webos-icons.mjs",
+    "tv:store-check": "node scripts/store-check.mjs"
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "^3.14.9",
+    "hls.js": "^1.6.16",
+    "mpegts.js": "^1.8.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "oxlint": "^1.75.0",
+    "prettier": "^3.9.6",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.56.1",
+    "vite": "^8.2.0"
+  }
+}

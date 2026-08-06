@@ -1,0 +1,17 @@
+{
+  "codes": {
+    "DEMO-2026": {
+      "planName": "Demo Plan",
+      "playlistUrl": "https://iptv-org.github.io/iptv/countries/tr.m3u",
+      "maxDevices": 2,
+      "expiresAt": 1893456000000
+    },
+    "EXPIRED-DEMO": {
+      "planName": "Expired Demo",
+      "playlistUrl": "https://iptv-org.github.io/iptv/countries/tr.m3u",
+      "maxDevices": 1,
+      "expiresAt": 1609459200000
+    }
+  },
+  "activations": {}
+}

@@ -1,0 +1,19 @@
+{
+  "id": "com.streambox.iptv",
+  "version": "1.0.0",
+  "vendor": "StreamBox",
+  "type": "web",
+  "main": "index.html",
+  "title": "StreamBox TV",
+  "appDescription": "IPTV player with license activation for Smart TV",
+  "icon": "icon.png",
+  "largeIcon": "icon-large.png",
+  "splashBackground": "splash.png",
+  "bgColor": "#0a0e14",
+  "iconColor": "#0d9488",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "handlesRelaunch": true,
+  "requiredMemory": 256,
+  "supportTouchMode": "none"
+}
