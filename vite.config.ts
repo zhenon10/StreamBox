@@ -12,7 +12,7 @@ const STREAM_PROXY_PATH = '/api/stream-proxy';
 /** Dev server middleware — fetches remote M3U URLs server-side to bypass browser CORS. */
 function playlistProxyPlugin(): Plugin {
   return {
-    name: 'streambox-playlist-proxy',
+    name: 'ivplayer-playlist-proxy',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith(PLAYLIST_PROXY_PATH)) {
@@ -38,7 +38,7 @@ function playlistProxyPlugin(): Plugin {
           }
 
           const response = await fetch(target, {
-            headers: { 'User-Agent': 'StreamBoxTV/1.0' },
+            headers: { 'User-Agent': 'IvPlayer/1.0' },
             signal: AbortSignal.timeout(120_000),
           });
 
@@ -63,7 +63,7 @@ function playlistProxyPlugin(): Plugin {
  */
 function streamProxyPlugin(): Plugin {
   return {
-    name: 'streambox-stream-proxy',
+    name: 'ivplayer-stream-proxy',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith(STREAM_PROXY_PATH)) {
@@ -107,20 +107,32 @@ function streamProxyPlugin(): Plugin {
           const range = req.headers.range;
           if (range) headers.Range = range;
 
-          // No short timeout — live MPEG-TS is an endless stream.
-          const response = await fetch(target, { headers });
+          // Follow redirects (Xtream live URLs often 302 to CDN).
+          const response = await fetch(target, { headers, redirect: 'follow' });
+
+          const contentTypePeek =
+            response.headers.get('content-type') ??
+            (target.includes('.m3u8')
+              ? 'application/vnd.apple.mpegurl'
+              : 'video/mp2t');
+
+          // Reject HTML error pages early so MSE does not hang on garbage.
+          if (response.status >= 400 || /text\/html/i.test(contentTypePeek)) {
+            const errBody = await response.text();
+            res.statusCode = response.status >= 400 ? response.status : 502;
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            res.end(
+              `Stream proxy upstream ${response.status}: ${errBody.slice(0, 200) || contentTypePeek}`,
+            );
+            return;
+          }
 
           res.statusCode = response.status;
           res.setHeader('Access-Control-Allow-Origin', '*');
           res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
           res.setHeader('Cache-Control', 'no-store');
-
-          const contentType =
-            response.headers.get('content-type') ??
-            (target.includes('.m3u8')
-              ? 'application/vnd.apple.mpegurl'
-              : 'video/mp2t');
-          res.setHeader('Content-Type', contentType);
+          res.setHeader('Content-Type', contentTypePeek);
 
           // Do not forward Content-Length for live/chunked streams — MSE can hang waiting for EOF.
           const contentLength = response.headers.get('content-length');
@@ -173,11 +185,16 @@ function streamProxyPlugin(): Plugin {
 }
 
 function isSimulatorMode(mode: string, command: ConfigEnv['command']): boolean {
-  return mode === 'simulator' || (command === 'serve' && mode !== 'production');
+  return (
+    mode === 'simulator' ||
+    mode === 'web' ||
+    (command === 'serve' && mode !== 'production')
+  );
 }
 
 export default defineConfig(({ mode, command }: ConfigEnv): UserConfig => {
   const simulator = isSimulatorMode(mode, command);
+  const webBuild = mode === 'web';
   const tvBuild = !simulator;
 
   return {
@@ -188,6 +205,17 @@ export default defineConfig(({ mode, command }: ConfigEnv): UserConfig => {
       tailwindcss(),
       playlistProxyPlugin(),
       streamProxyPlugin(),
+      webBuild
+        ? {
+            name: 'web-viewport',
+            transformIndexHtml(html: string) {
+              return html.replace(
+                'width=1920, height=1080, initial-scale=1.0',
+                'width=device-width, initial-scale=1.0',
+              );
+            },
+          }
+        : null,
       // webOS loads apps from file:// — ES modules + crossorigin fail (CORS / Failed to fetch).
       tvBuild
         ? {
@@ -204,23 +232,23 @@ export default defineConfig(({ mode, command }: ConfigEnv): UserConfig => {
           }
         : null,
     ].filter(Boolean),
-    base: './',
+    base: webBuild ? '/app/' : './',
     resolve: {
       alias: {
         '@': path.resolve(rootDir, './src'),
       },
     },
     define: {
-      __STREAMBOX_SIMULATOR__: JSON.stringify(simulator),
+      __IVPLAYER_SIMULATOR__: JSON.stringify(simulator),
     },
     build: {
       // webOS TV 6.0 = Chromium 79 (no native ?. / ??). Simulator can stay modern.
       target: simulator ? 'es2022' : 'chrome79',
       // Critical: Tailwind v4 emits @layer — unsupported before Chrome 99 → unstyled TV UI.
       cssTarget: simulator ? undefined : 'chrome79',
-      outDir: simulator ? 'dist-simulator' : 'dist',
-      // Source maps for simulator; production TV builds stay lean.
-      sourcemap: simulator,
+      outDir: webBuild ? 'dist-web' : simulator ? 'dist-simulator' : 'dist',
+      // Source maps for local simulator only.
+      sourcemap: simulator && !webBuild,
       cssCodeSplit: !tvBuild,
       modulePreload: tvBuild ? false : undefined,
       rollupOptions: {
@@ -228,7 +256,7 @@ export default defineConfig(({ mode, command }: ConfigEnv): UserConfig => {
           ? {
               // Single classic IIFE — file:// cannot load ES module graphs on webOS.
               format: 'iife',
-              name: 'StreamBoxTV',
+              name: 'IvPlayer',
               inlineDynamicImports: true,
               entryFileNames: 'assets/[name]-[hash].js',
               chunkFileNames: 'assets/[name]-[hash].js',

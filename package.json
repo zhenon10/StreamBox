@@ -1,5 +1,5 @@
 {
-  "name": "streambox-tv",
+  "name": "ivplayer",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -19,6 +19,7 @@
     "package:webos": "npm run tv:package",
     "license:server": "node license-server/index.mjs",
     "tv:icons": "node scripts/generate-webos-icons.mjs",
+    "web:build": "node scripts/package-web.mjs",
     "tv:store-check": "node scripts/store-check.mjs"
   },
   "dependencies": {

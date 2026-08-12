@@ -6,11 +6,11 @@ Fill before LG Seller Lounge submission.
 
 | Field | Value |
 |-------|--------|
-| Support email | support@example.com |
+| Support email | destek@ivplayer.tr |
 | Support phone (optional) | |
-| Support hours | e.g. Mon–Fri 09:00–18:00 (timezone) |
+| Support hours | Pazartesi–Cuma 09:00–18:00 (Türkiye) |
 | Language | Turkish / English |
-| Website | https://example.com/support |
+| Website | https://ivplayer.tr/support.html |
 
 ## In-app help hints
 
@@ -26,8 +26,8 @@ Fill before LG Seller Lounge submission.
 | Country | |
 | Tax / business ID | |
 | Store listing contact | |
-| Privacy policy URL | https://example.com/privacy |
-| App support URL | https://example.com/support |
+| Privacy policy URL | https://ivplayer.tr/privacy.html |
+| App support URL | https://ivplayer.tr/support.html |
 
 ## Test credentials for LG QA (attach privately)
 

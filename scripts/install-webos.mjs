@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Install StreamBox TV IPK onto a registered LG webOS device / emulator.
+ * Install IvPlayer IPK onto a registered LG webOS device / emulator.
  *
  * Usage:
  *   node scripts/install-webos.mjs [--device <name>]
@@ -23,7 +23,7 @@ function getArg(flag) {
 const device = getArg('--device') ?? process.env.WEBOS_DEVICE ?? 'emulator';
 
 const ipks = readdirSync(root).filter(
-  (f) => f.startsWith('com.streambox.iptv') && f.endsWith('.ipk'),
+  (f) => f.startsWith('com.ivplayer.iptv') && f.endsWith('.ipk'),
 );
 
 if (ipks.length === 0) {

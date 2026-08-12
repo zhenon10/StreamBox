@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>StreamBox Lisans Yönetimi</title>
+  <title>IvPlayer Lisans Yönetimi</title>
   <style>
     :root {
       --bg: #0f1419;
@@ -187,15 +187,12 @@
 <body>
   <header>
     <div>
-      <h1>Stream<span>Box</span> Lisans</h1>
+      <h1>Iv<span>Player</span> Lisans</h1>
       <p>Kod · playlist URL · cihaz limiti</p>
     </div>
     <div class="auth-bar">
-      <div>
-        <label for="adminKey">Admin anahtarı (varsayılan: streambox-admin)</label>
-        <input id="adminKey" type="text" value="streambox-admin" placeholder="streambox-admin" autocomplete="off" spellcheck="false" />
-      </div>
-      <button type="button" class="primary" id="btnLoad">Yükle</button>
+      <button type="button" class="primary" id="btnLoad">Yenile</button>
+      <button type="button" class="danger" id="btnLogout">Çıkış</button>
     </div>
   </header>
 
@@ -203,16 +200,28 @@
     <div id="flash" class="msg"></div>
 
     <section class="card">
-      <h2>Yeni / güncelle kod</h2>
+      <h2>Yeni / güncelle kod (oyuncu lisansı)</h2>
+      <p style="color:var(--muted);margin:0 0 1rem;font-size:0.92rem">
+        HotPlayer modeli: kod yalnızca oyuncuyu açar. Playlist URL isteğe bağlıdır — müşteri kendi
+        M3U’sunu uygulamada ekler. Cihaz limiti genelde 1 (cihaz koduna kilit).
+      </p>
       <form id="codeForm">
         <div class="row">
           <div>
+            <label for="planPreset">Plan şablonu</label>
+            <select id="planPreset">
+              <option value="year">1 yıl</option>
+              <option value="lifetime">Ömür boyu</option>
+              <option value="custom">Özel</option>
+            </select>
+          </div>
+          <div>
             <label for="code">Aktivasyon kodu</label>
-            <input id="code" required placeholder="ORNEK-2026" class="mono" />
+            <input id="code" required placeholder="IVP-2026-XXXX" class="mono" />
           </div>
           <div>
             <label for="planName">Plan adı</label>
-            <input id="planName" required placeholder="Aylık" />
+            <input id="planName" required placeholder="1 Yıl" />
           </div>
           <div>
             <label for="maxDevices">Cihaz limiti</label>
@@ -225,8 +234,8 @@
         </div>
         <div class="row full">
           <div>
-            <label for="playlistUrl">Playlist URL (M3U)</label>
-            <input id="playlistUrl" type="url" required placeholder="https://panel.ornek/get.php?..." />
+            <label for="playlistUrl">Playlist URL (isteğe bağlı — eski / özel model)</label>
+            <input id="playlistUrl" type="url" placeholder="Boş bırakın = müşteri kendi listesini ekler" />
           </div>
         </div>
         <div class="actions">
@@ -238,21 +247,17 @@
 
     <section class="card">
       <h2>Kodlar <span id="count" style="color:var(--muted);font-weight:400"></span></h2>
-      <div id="list"><p class="empty">Yüklemek için admin anahtarını girin.</p></div>
+      <div id="list"><p class="empty">Yükleniyor…</p></div>
     </section>
   </main>
 
   <script>
-    const KEY_STORAGE = 'sb_license_admin_key';
     const $ = (id) => document.getElementById(id);
 
-    const adminKeyInput = $('adminKey');
     const flash = $('flash');
     const list = $('list');
     const form = $('codeForm');
-
-    const savedKey = localStorage.getItem(KEY_STORAGE);
-    adminKeyInput.value = savedKey && savedKey.trim() ? savedKey : 'streambox-admin';
+    localStorage.removeItem('sb_license_admin_key');
 
     function setDefaultExpiry() {
       const d = new Date();
@@ -260,6 +265,19 @@
       $('expiresAt').value = d.toISOString().slice(0, 10);
     }
     setDefaultExpiry();
+    $('planName').value = '1 Yıl';
+
+    function applyPlanPreset() {
+      const preset = $('planPreset').value;
+      if (preset === 'year') {
+        $('planName').value = '1 Yıl';
+        setDefaultExpiry();
+      } else if (preset === 'lifetime') {
+        $('planName').value = 'Ömür Boyu';
+        $('expiresAt').value = '2099-12-31';
+      }
+    }
+    $('planPreset').addEventListener('change', applyPlanPreset);
 
     function showMsg(text, ok) {
       flash.textContent = text;
@@ -267,20 +285,23 @@
       setTimeout(() => { flash.className = 'msg'; }, 4000);
     }
 
-    function headers() {
-      const key = adminKeyInput.value.trim();
-      localStorage.setItem(KEY_STORAGE, key);
-      return {
-        'Content-Type': 'application/json',
-        'X-Admin-Key': key,
-      };
+    function goLogin() {
+      window.location.replace('/admin');
     }
 
     async function api(path, options = {}) {
       const res = await fetch(path, {
         ...options,
-        headers: { ...headers(), ...(options.headers || {}) },
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.headers || {}),
+        },
       });
+      if (res.status === 401) {
+        goLogin();
+        throw new Error('unauthorized');
+      }
       const data = await res.json().catch(() => ({ ok: false, error: 'unknown' }));
       if (!res.ok || data.ok === false) {
         throw new Error(data.error || ('HTTP ' + res.status));
@@ -304,6 +325,24 @@
     function shortId(id) {
       const clean = String(id || '').replace(/[^a-zA-Z0-9]/g, '');
       return clean.length <= 10 ? clean : clean.slice(-10);
+    }
+
+    /** Hide credentials in list view; full URL still available when editing. */
+    function maskPlaylistUrl(raw) {
+      if (!String(raw || '').trim()) return '(müşteri kendi listesini ekler)';
+      try {
+        const u = new URL(String(raw || ''));
+        if (u.password) u.password = '***';
+        if (u.username) u.username = '***';
+        u.searchParams.forEach((_, key) => {
+          if (/pass|user|token|key|auth|pwd|secret/i.test(key)) {
+            u.searchParams.set(key, '***');
+          }
+        });
+        return u.toString();
+      } catch {
+        return '[url]';
+      }
     }
 
     function render(codes) {
@@ -332,7 +371,7 @@
               ${statusBadge(c.expiresAt)}
             </td>
             <td>
-              <span class="url" title="${escapeHtml(c.playlistUrl)}">${escapeHtml(c.playlistUrl)}</span>
+              <span class="url" title="Düzenle ile tam URL (kimlik bilgileri maskeli gösterilir)">${escapeHtml(maskPlaylistUrl(c.playlistUrl))}</span>
             </td>
             <td>${c.deviceCount} / ${c.maxDevices}</td>
             <td>${fmtDate(c.expiresAt)}</td>
@@ -414,22 +453,12 @@
     }
 
     async function load() {
-      if (!adminKeyInput.value.trim()) {
-        adminKeyInput.value = 'streambox-admin';
-      }
       try {
         const data = await api('/v1/admin/codes');
         render(data.codes || []);
         showMsg('Kodlar yüklendi', true);
       } catch (e) {
-        if (e.message === 'unauthorized') {
-          localStorage.removeItem(KEY_STORAGE);
-          adminKeyInput.value = 'streambox-admin';
-          showMsg('Yetkisiz — alan sıfırlandı. Tekrar Yükle’ye basın (streambox-admin).', false);
-          list.innerHTML =
-            '<p class="empty">Anahtar: <strong>streambox-admin</strong> yazıp Yükle’ye basın.</p>';
-          return;
-        }
+        if (e.message === 'unauthorized') return;
         list.innerHTML = '<p class="empty">Yüklenemedi: ' + escapeHtml(e.message) + '</p>';
         showMsg(e.message, false);
       }
@@ -437,9 +466,15 @@
 
     $('btnLoad').addEventListener('click', () => load());
 
+    $('btnLogout').addEventListener('click', async () => {
+      await fetch('/admin/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+      goLogin();
+    });
+
     $('btnClear').addEventListener('click', () => {
       form.reset();
-      setDefaultExpiry();
+      $('planPreset').value = 'year';
+      applyPlanPreset();
       $('maxDevices').value = '1';
     });
 
@@ -458,7 +493,8 @@
         await api('/v1/admin/codes', { method: 'POST', body: JSON.stringify(body) });
         showMsg(body.code.toUpperCase() + ' kaydedildi', true);
         form.reset();
-        setDefaultExpiry();
+        $('planPreset').value = 'year';
+        applyPlanPreset();
         $('maxDevices').value = '1';
         await load();
       } catch (err) {
@@ -466,7 +502,7 @@
       }
     });
 
-    if (adminKeyInput.value) load();
+    load();
   </script>
 </body>
 </html>

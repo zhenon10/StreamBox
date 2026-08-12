@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * StreamBox TV — Browser / TV Simulator entry.
+ * IvPlayer — Browser / TV Simulator entry.
  * Starts Vite with Hot Reload, HMR, Fast Refresh and source maps.
  */
 import { spawn } from 'node:child_process';
@@ -29,7 +29,7 @@ if (!args) {
 
 console.log('');
 console.log('╔══════════════════════════════════════════════╗');
-console.log('║   StreamBox TV — Simulator (Browser)         ║');
+console.log('║   IvPlayer — Simulator (Browser)         ║');
 console.log('╠══════════════════════════════════════════════╣');
 console.log('║  Platform : BrowserPlatform                  ║');
 console.log('║  Target   : simulator                        ║');

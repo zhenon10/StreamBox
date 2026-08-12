@@ -1,4 +1,4 @@
-# StreamBox License Server
+# IvPlayer License Server
 
 Minimal HTTP API + admin panel (no framework).
 
@@ -6,14 +6,14 @@ Minimal HTTP API + admin panel (no framework).
 npm run license:server
 # API:   http://127.0.0.1:8787
 # Admin: http://127.0.0.1:8787/admin
+# Web:   http://127.0.0.1:8787/app/   (local) · production: https://ivplayer.tr/app/
 ```
 
-Admin key (default): **`streambox-admin`**  
-Override: `set LICENSE_ADMIN_KEY=your-secret`
+Set `LICENSE_ADMIN_KEY` to a long random secret (required in production). Local default is `ivplayer-admin`.
 
 ## Admin panel
 
-Open `/admin` → enter the admin key →:
+Open `/admin` → login with the admin key (session cookie, 12 hours). The panel HTML is not served until login succeeds. Then:
 
 - Add / edit activation codes
 - Set **playlist URL** per code
@@ -32,7 +32,7 @@ Open `/admin` → enter the admin key →:
 
 ## Admin API
 
-Header: `X-Admin-Key: <LICENSE_ADMIN_KEY>`
+Cookie session after `/admin/login`, or header `X-Admin-Key: <LICENSE_ADMIN_KEY>`.
 
 | Method | Path |
 |--------|------|

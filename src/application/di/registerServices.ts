@@ -99,7 +99,7 @@ function createRegistry(): ServiceRegistry {
 
   registry.register(
     TOKENS.logger,
-    (p) => p.resolve(TOKENS.loggerFactory).create('StreamBox'),
+    (p) => p.resolve(TOKENS.loggerFactory).create('IvPlayer'),
     ServiceLifetime.Singleton,
   );
 

@@ -12,6 +12,8 @@ export interface IVideoPlayerEvents {
 
 export interface VideoLoadOptions {
   readonly isLive?: boolean;
+  /** Channel title — used for codec hints (e.g. HEVC). */
+  readonly channelName?: string;
 }
 
 export interface IVideoPlayer {

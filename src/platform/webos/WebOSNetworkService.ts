@@ -5,15 +5,16 @@ import type {
   NetworkResponse,
   NetworkService,
 } from '../interfaces';
+import { resolveFetchUrl } from '@/infrastructure/network/fetchUrl';
 
 export class WebOSNetworkService implements NetworkService {
   async fetch(url: string, options?: NetworkRequestOptions): Promise<NetworkResponse> {
     const controller = new AbortController();
-    const timeoutMs = options?.timeoutMs ?? 30000;
+    const timeoutMs = options?.timeoutMs ?? 120_000;
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(url, {
+      const response = await fetch(resolveFetchUrl(url), {
         method: options?.method ?? 'GET',
         ...(options?.headers ? { headers: options.headers } : {}),
         ...(options?.body !== undefined ? { body: options.body } : {}),

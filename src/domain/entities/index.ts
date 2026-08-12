@@ -63,6 +63,8 @@ export interface AppSettings {
   readonly defaultVolume: number;
   readonly showChannelNumbers: boolean;
   readonly enableHardwareAcceleration: boolean;
+  /** UI language */
+  readonly locale: 'tr' | 'en';
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -73,6 +75,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultVolume: 80,
   showChannelNumbers: true,
   enableHardwareAcceleration: true,
+  locale: 'tr',
 };
 
 export type PlaybackState =

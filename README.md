@@ -1,4 +1,4 @@
-# StreamBox TV
+# IvPlayer
 
 Commercial-quality IPTV / media player for **LG webOS**, with a **simulator-first** development workflow.
 
@@ -140,12 +140,12 @@ npm run simulator
 
 Demo code: **`DEMO-2026`**. See [`license-server/README.md`](license-server/README.md).
 
-Admin panel: http://127.0.0.1:8787/admin (key: `streambox-admin`, env `LICENSE_ADMIN_KEY`).
+Admin panel: http://127.0.0.1:8787/admin (key: `ivplayer-admin`, env `LICENSE_ADMIN_KEY`).
 
 ## LG Content Store
 
 ```bash
-npm run tv:icons          # regenerate icon / splash / 400px store icon
+npm run tv:icons          # brand/ivplayer-app-icon.* → webos icons + splash
 npm run tv:store-check    # pre-flight (assets, appinfo, env warnings)
 npm run tv:package        # production IPK (fails if icons missing)
 ```

@@ -7,6 +7,7 @@ import {
   IconPause,
   IconRewind30,
 } from '@/ui/components/PlayerIcons';
+import { useT } from '@/i18n/useT';
 
 interface TimelineBarProps {
   readonly currentTime: number;
@@ -32,6 +33,7 @@ export function TimelineBar({
   onPlayPause,
   showTransport = true,
 }: TimelineBarProps): ReactNode {
+  const t = useT();
   const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
   const safeCurrent = Math.max(0, Math.min(currentTime, safeDuration || currentTime));
   const progress = safeDuration > 0 ? Math.min(100, (safeCurrent / safeDuration) * 100) : 0;
@@ -54,7 +56,7 @@ export function TimelineBar({
         ) : (
           <span className="inline-flex items-center gap-2 rounded-full bg-error-500/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">
             <IconLive className="h-3 w-3 animate-pulse" />
-            Canlı
+            {t('player.live')}
           </span>
         )}
       </div>
@@ -77,7 +79,7 @@ export function TimelineBar({
               value={Math.round(progress * 10)}
               onChange={(e) => handleRangeChange(e.target.value)}
               className="absolute inset-0 w-full cursor-pointer opacity-0"
-              aria-label="Zaman çubuğu"
+              aria-label={t('player.timeline')}
             />
           </>
         )}
@@ -91,7 +93,7 @@ export function TimelineBar({
               focusGroup="player-timeline"
               focusPriority={9}
               onClick={() => onSkip(-30)}
-              aria-label="30 saniye geri"
+              aria-label={t('player.seekBack')}
             >
               <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-white transition-colors [.focused_&]:bg-accent-500 [.focused_&]:text-white hover:bg-white/20">
                 <IconRewind30 className="h-11 w-11" />
@@ -105,7 +107,13 @@ export function TimelineBar({
               focusGroup="player-timeline"
               focusPriority={10}
               onClick={onPlayPause}
-              aria-label={isBuffering ? 'Yükleniyor' : isPlaying ? 'Duraklat' : 'Oynat'}
+              aria-label={
+                isBuffering
+                  ? t('player.loading')
+                  : isPlaying
+                    ? t('player.pause')
+                    : t('player.play')
+              }
             >
               <span className="flex h-20 w-20 items-center justify-center rounded-full bg-accent-500 text-white shadow-lg shadow-accent-500/30 transition-transform [.focused_&]:scale-110 [.focused_&]:bg-accent-400">
                 {isBuffering ? (
@@ -125,7 +133,7 @@ export function TimelineBar({
               focusGroup="player-timeline"
               focusPriority={8}
               onClick={() => onSkip(30)}
-              aria-label="30 saniye ileri"
+              aria-label={t('player.seekForward')}
             >
               <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-white transition-colors [.focused_&]:bg-accent-500 [.focused_&]:text-white hover:bg-white/20">
                 <IconForward30 className="h-11 w-11" />

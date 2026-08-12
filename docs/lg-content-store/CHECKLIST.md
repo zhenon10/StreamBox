@@ -1,4 +1,6 @@
-# LG Content Store — Self checklist (StreamBox TV)
+# LG Content Store — Self checklist (IvPlayer)
+
+Ordered plan (what to do first): **[ROADMAP.md](./ROADMAP.md)**.
 
 Use this together with the official **App Self Checklist** form from [LG Seller Lounge](https://seller.lgappstv.com/). Fill the official spreadsheet with your test results before upload.
 
@@ -29,10 +31,11 @@ Use this together with the official **App Self Checklist** form from [LG Seller 
 ## License / content flow
 
 - [ ] Home shows **Aktive et** (no free M3U URL/file entry in store build)
+- [ ] Without license: no recent playlists, favorites/history, or channel list visible
 - [ ] Invalid code shows clear Turkish error
 - [ ] Valid code loads playlist and opens Channels
 - [ ] Network failure to license API shows friendly error (not crash)
-- [ ] Settings shows device ID, plan, expiry; “Lisansı kaldır” works
+- [ ] Settings shows device ID, plan, expiry; “Lisansı kaldır” clears playlist access
 
 ## Playback
 

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gizlilik politikası — IvPlayer</title>
+    <meta
+      name="description"
+      content="IvPlayer gizlilik politikası: cihaz kimliği, lisans, yerel veriler ve stream-proxy hakkında."
+    />
+    <link rel="icon" href="/logo.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Sora:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body class="page-doc">
+    <div class="bg-glow" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="logo-lockup" href="/">
+        <img src="/logo.png" width="40" height="40" alt="" />
+        <span class="wordmark"><span class="iv">IV</span>PLAYER</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/">Ana sayfa</a>
+        <a href="/activation.html">Aktivasyon</a>
+        <a class="is-active" href="/privacy.html">Gizlilik</a>
+        <a href="/support.html">Destek</a>
+        <a class="nav-cta" href="https://ivplayer.tr/app/">Web oynatıcı</a>
+      </nav>
+    </header>
+
+    <main class="doc">
+      <p class="eyebrow">Yasal</p>
+      <h1>Gizlilik politikası</h1>
+      <p class="meta">
+        Son güncelleme: 12 Ağustos 2026 · Bu sayfa:
+        <a href="https://ivplayer.tr/privacy.html">https://ivplayer.tr/privacy.html</a>
+        · İletişim:
+        <a href="mailto:destek@ivplayer.tr">destek@ivplayer.tr</a>
+      </p>
+
+      <section class="doc-block">
+        <h2>1. Kim sunuyor</h2>
+        <p>
+          IvPlayer, bireysel bir geliştirici tarafından sunulan çok platformlu bir medya / IPTV
+          oynatıcıdır. Bu politika; istemci uygulamalarının (web, Smart TV ve ileride eklenecek
+          diğer platformlar) ve lisans doğrulama / oynatma yardımcı hizmetinin
+          (<a href="https://license.ivplayer.tr">https://license.ivplayer.tr</a>) veri işleme
+          pratiklerini açıklar.
+        </p>
+      </section>
+
+      <section class="doc-block">
+        <h2>2. Uygulama ne yapar</h2>
+      <p>
+        IvPlayer, aktivasyon kodu ile <strong>oyuncu lisansını</strong> açan bir medya
+        oynatıcıdır. Kod,
+        <a href="https://license.ivplayer.tr">https://license.ivplayer.tr</a> üzerinden HTTPS ile
+        doğrulanır. Doğrulama sonrası kullanıcı kendi yayın listesini (M3U URL veya dosya) ekler;
+        uygulama kanal paketi satmaz.
+      </p>
+      <p>
+        Güncel istemciler arasında tarayıcı tabanlı web oynatıcı
+        (<a href="https://ivplayer.tr/app/">https://ivplayer.tr/app/</a>) ve LG webOS TV uygulaması
+        bulunur. Lisans planları tipik olarak yıllık veya ömür boyudur ve cihaz kimliğine
+        bağlanır.
+      </p>
+        <p>
+          Mağaza / ücretsiz dağıtım sürümlerinde abonelik veya aktivasyon, ilgili mağazanın uygulama
+          içi satın alma sistemi üzerinden yapılmak zorunda değildir; erişim aktivasyon kodu ile
+          sağlanır. LG webOS sürümü Content Store üzerinden ücretsiz sunulmak üzere tasarlanmıştır.
+        </p>
+        <p>
+          IvPlayer yayın içeriğinin sahibi veya yayın sağlayıcısı değildir; yetkilendirilmiş bir kod
+          ile erişilen yayın kaynaklarını oynatan bir medya oynatıcıdır.
+        </p>
+      </section>
+
+      <section class="doc-block">
+        <h2>3. İşlenen veriler ve amaçları</h2>
+
+        <h3>3.1 Cihaz kimliği</h3>
+        <p>
+          Uygulama cihazda / tarayıcıda kalıcı bir kimlik tutar. Platform imkân verdiğinde (ör. LG
+          webOS’ta LGUDID) yerel platform kimliği kullanılır; aksi halde rastgele bir kimlik
+          üretilir. Amaçlar: lisansı sınırlı sayıda cihaza bağlamak, limit dışı kullanımı önlemek,
+          activate / validate / deactivate işlemlerini yapmak. Kimlik yerelde saklanır ve bu üç
+          lisans isteğinde sunucuya gönderilir.
+        </p>
+
+        <h3>3.2 Cihaz etiketi</h3>
+        <p>
+          Aktivasyonda kısa bir cihaz etiketi (ör. model adı, tarayıcı / platform etiketi) sunucuya
+          gönderilebilir; yönetim panelinde aktivasyonları ayırt etmek içindir.
+        </p>
+
+        <h3>3.3 Aktivasyon kodu ve lisans jetonu</h3>
+        <p>
+          Aktivasyon kodu yalnızca aktivasyon isteğinde sunucuya gönderilir. Başarılı aktivasyondan
+          sonra bir lisans jetonu ve özet bilgiler (plan adı, bitiş zamanı, playlist adresi) cihazda
+          / tarayıcıda saklanır. Jeton doğrulama ve iptal isteklerinde sunucuya gönderilir.
+        </p>
+
+        <h3>3.4 Playlist / kanal verileri (yerel)</h3>
+        <p>
+          Playlist kaynağı, kanal listesi, favoriler, izleme geçmişi ve ayarlar cihazda veya
+          tarayıcıda (localStorage / IndexedDB / gerekirse sessionStorage) tutulabilir. Favoriler,
+          geçmiş ve ayarlar lisans API’sine gönderilmez.
+        </p>
+
+        <h3>3.5 Stream proxy</h3>
+        <p>
+          Özellikle Smart TV ağ kısıtları nedeniyle playlist indirme ve oynatma istekleri
+          <code>https://license.ivplayer.tr/v1/stream-proxy</code> üzerinden yönlendirilebilir. Web
+          istemcisi de gerektiğinde aynı yardımcıyı kullanabilir. Bu durumda hedef playlist veya
+          yayın URL’si (URL içindeki erişim parametreleri dahil) sorgu parametresi olarak bu
+          sunucuya iletilir ve sunucu içeriği iletir. Proxy reklam veya analitik amaçlı kullanılmaz.
+          Uygulama kodu bu URL’yi dosyaya yazmaz. Ters proxy (nginx) üzerinde
+          <code>/v1/stream-proxy</code> için erişim günlüğü kapatılarak sorgu dizesinin (kimlik
+          bilgisi içerebilecek <code>?url=</code>) access log’a yazılması engellenir.
+        </p>
+      </section>
+
+      <section class="doc-block">
+        <h2>4. Yapılmayanlar</h2>
+        <ul class="doc-list">
+          <li>Sosyal medya ile giriş yoktur.</li>
+          <li>Üçüncü taraf reklam SDK’sı yoktur.</li>
+          <li>GPS / hassas konum toplanmaz.</li>
+          <li>Harici analitik / telemetri / reklam izleme SDK’sı yoktur.</li>
+          <li>Kişisel veriler satılmaz.</li>
+          <li>
+            İstemci uygulamaları lisans akışında üçüncü taraf çerez / izleme kullanmaz. Yönetim
+            paneli oturumu ayrı bir yönetici arayüzüdür ve kullanıcı oynatıcı istemcilerinden
+            bağımsızdır.
+          </li>
+        </ul>
+      </section>
+
+      <section class="doc-block">
+        <h2>5. Lisans sunucusu</h2>
+        <p>
+          <a href="https://license.ivplayer.tr">https://license.ivplayer.tr</a> IvPlayer’ın kendi
+          lisans ve (gerekirse) stream-proxy hizmetidir. Sunucuda tipik olarak aktivasyon kodu,
+          cihaz kimliği, isteğe bağlı cihaz etiketi, lisans jetonu, aktivasyon zamanı ve yönetici
+          tarafından tanımlanan playlist URL’si tutulur. Playlist URL’si yayın panelinize ait
+          erişim bilgilerini içerebilir.
+        </p>
+        <p>
+          Yayın / CDN adresleri aboneliğinizin yayın sağlayıcısına ait olabilir; onların gizlilik
+          uygulamaları ayrıca geçerlidir.
+        </p>
+      </section>
+
+      <section class="doc-block">
+        <h2>6. Yerel depolama</h2>
+        <p>
+          Cihazda / tarayıcıda tutulabilen başlıca veriler: cihaz kimliği, lisans özeti (jeton +
+          playlist adresi), playlist/kanal önbelleği, favoriler, geçmiş, ayarlar, kısa süreli
+          kurtarma durumu (sessionStorage). Tarayıcıda depolama ilgili site kökenine
+          (<code>ivplayer.tr</code> vb.) bağlıdır.
+        </p>
+      </section>
+
+      <section class="doc-block">
+        <h2>7. Saklama</h2>
+        <p>
+          <strong>Cihazda / tarayıcıda:</strong> Veriler uygulama kaldırıldığında, uygulama verisi
+          silindiğinde veya tarayıcı site verisi temizlendiğinde silinebilir. Ayarlar’dan “lisansı
+          kaldır” işlemi sunucudaki ilgili aktivasyon kaydını ve yerelde lisans özetini (ve son
+          oynatılanlar listesini) temizler; cihaz kimliği, playlist önbelleği, favoriler ve geçmiş
+          kalabilir.
+        </p>
+        <p>
+          <strong>Sunucuda:</strong> Lisans kodları ve aktivasyon kayıtları hizmet işletimi için
+          tutulur. Süresi dolmuş veya iptal kayıtlar yönetici tarafından kaldırılabilir. Kodda sabit
+          bir otomatik silme süresi tanımlanmamıştır.
+        </p>
+      </section>
+
+      <section class="doc-block">
+        <h2>8. Güvenlik</h2>
+        <p>
+          Üretimde lisans istekleri HTTPS ile yapılır. Stream proxy, özel / yerel ağ adreslerine
+          yönlendirmeyi engellemeye yönelik kontroller içerir. Hiçbir önlem mutlak güvenlik sağlamaz.
+        </p>
+      </section>
+
+      <section class="doc-block">
+        <h2>9. Kullanıcı hakları (KVKK)</h2>
+        <p>
+          Türkiye’de yürürlükteki kişisel verilerin korunması mevzuatı kapsamında; verilerinizin
+          işlenip işlenmediğini öğrenme, bilgi talep etme, düzeltilmesini isteme ve silinmesini /
+          yok edilmesini talep etme haklarınızı
+          <a href="mailto:destek@ivplayer.tr">destek@ivplayer.tr</a> üzerinden kullanabilirsiniz.
+          Uygulama içinde Ayarlar’dan lisansı kaldırarak cihazınızdaki / tarayıcınızdaki lisans
+          oturumunu sonlandırabilirsiniz.
+        </p>
+      </section>
+
+      <section class="doc-block">
+        <h2>10. Çocuklar</h2>
+        <p>
+          IvPlayer çocuklara özel tasarlanmamıştır ve bilerek çocuklardan kişisel veri toplamayı
+          amaçlamaz. Canlı / VOD içeriklerinin uygunluğunu ebeveyn veya yasal vasiler denetlemelidir.
+        </p>
+      </section>
+
+      <section class="doc-block">
+        <h2>11. Değişiklikler</h2>
+        <p>
+          Bu politika güncellenebilir (yeni platformlar dahil). Güncel metin her zaman
+          <a href="https://ivplayer.tr/privacy.html">https://ivplayer.tr/privacy.html</a> adresindedir.
+        </p>
+      </section>
+
+      <section class="doc-block">
+        <h2>12. İletişim</h2>
+        <p><a href="mailto:destek@ivplayer.tr">destek@ivplayer.tr</a></p>
+        <p>
+          Destek:
+          <a href="https://ivplayer.tr/support.html">https://ivplayer.tr/support.html</a>
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <a class="logo-lockup" href="/">
+        <img src="/logo.png" width="32" height="32" alt="" />
+        <span class="wordmark"><span class="iv">IV</span>PLAYER</span>
+      </a>
+      <p>
+        <a href="/privacy.html">Gizlilik</a>
+        ·
+        <a href="/support.html">Destek</a>
+        ·
+        <a href="mailto:destek@ivplayer.tr">destek@ivplayer.tr</a>
+      </p>
+      <p class="copy">© 2026 IvPlayer. Tüm hakları saklıdır.</p>
+    </footer>
+  </body>
+</html>

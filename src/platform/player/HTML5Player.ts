@@ -48,6 +48,14 @@ function isPlayAbort(error: unknown): boolean {
   );
 }
 
+function isAutoplayBlocked(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.name === 'NotAllowedError' ||
+    /notallowed|user didn't interact|user gesture|autoplay/i.test(error.message)
+  );
+}
+
 function inferLive(url: string, options?: VideoLoadOptions): boolean {
   if (options?.isLive === true) return true;
   if (options?.isLive === false) return false;
@@ -72,9 +80,17 @@ export class HTML5Player implements IVideoPlayer {
   private switching = false;
   private playPromise: Promise<void> | null = null;
   private liveMode = false;
+  private objectFit: 'contain' | 'cover' | 'fill' = 'contain';
 
   attach(container: HTMLElement): void {
+    if (this.container === container && this.video && container.contains(this.video)) {
+      return;
+    }
+    if (this.video) this.detach();
     this.container = container;
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
     this.video = this.createVideoElement();
     this.bindVideoEvents(this.video);
     container.appendChild(this.video);
@@ -91,14 +107,17 @@ export class HTML5Player implements IVideoPlayer {
   }
 
   async load(url: string, options?: VideoLoadOptions): Promise<void> {
-    if (!this.video) throw new Error('Player not attached');
+    if (!this.video && !this.container) throw new Error('Player not attached');
     const generation = ++this.loadGeneration;
     this.liveMode = inferLive(url, options);
     this.handlers.onStateChange?.('loading');
     this.suppressErrors = true;
     this.switching = true;
     this.destroyEngines();
-    await this.clearVideoSource();
+    // Reusing the same <video> after MSE detach → audio-only / black on webOS
+    // emulator (and often Chrome). Fresh element matches "leave list & reopen".
+    await this.recreateVideoElement();
+    if (generation !== this.loadGeneration) return;
 
     const candidates = this.liveMode
       ? buildLivePlaybackCandidates(url)
@@ -114,13 +133,16 @@ export class HTML5Player implements IVideoPlayer {
           if (generation !== this.loadGeneration) return;
           try {
             await this.loadWithEngine(engine, candidate);
+            this.nudgeVideoPlane();
             this.suppressErrors = false;
             this.switching = false;
             return;
           } catch (error) {
+            if (generation !== this.loadGeneration) return;
             lastError = error instanceof Error ? error : new Error(String(error));
             this.destroyEngines();
-            await this.clearVideoSource();
+            await this.recreateVideoElement();
+            if (generation !== this.loadGeneration) return;
           }
         }
       }
@@ -143,14 +165,27 @@ export class HTML5Player implements IVideoPlayer {
           await this.mpegtsPlayer.play();
           this.handlers.onStateChange?.('playing');
           return;
-        } catch {
+        } catch (error) {
+          if (isAutoplayBlocked(error)) {
+            await this.playWithAutoplayUnlock();
+            return;
+          }
           // fall through
         }
       }
       const video = this.video;
       if (!video) return;
       this.playPromise = video.play().then(() => undefined);
-      await this.playPromise;
+      try {
+        await this.playPromise;
+      } catch (error) {
+        this.playPromise = null;
+        if (isAutoplayBlocked(error)) {
+          await this.playWithAutoplayUnlock();
+          return;
+        }
+        throw error;
+      }
       this.playPromise = null;
     };
 
@@ -178,6 +213,27 @@ export class HTML5Player implements IVideoPlayer {
         }
         throw error instanceof Error ? error : new Error(message);
       }
+    }
+  }
+
+  /** Chrome blocks unmuted autoplay after navigation; mute → play → restore volume. */
+  private async playWithAutoplayUnlock(): Promise<void> {
+    const video = this.video;
+    if (!video) return;
+    const wasMuted = video.muted;
+    video.muted = true;
+    try {
+      if (this.mpegtsPlayer) {
+        try {
+          await this.mpegtsPlayer.play();
+        } catch {
+          await video.play();
+        }
+      } else {
+        await video.play();
+      }
+    } finally {
+      video.muted = wasMuted;
     }
   }
 
@@ -255,6 +311,7 @@ export class HTML5Player implements IVideoPlayer {
   }
 
   setObjectFit(fit: 'contain' | 'cover' | 'fill'): void {
+    this.objectFit = fit;
     if (!this.video) return;
     this.video.style.objectFit = fit;
   }
@@ -281,13 +338,17 @@ export class HTML5Player implements IVideoPlayer {
 
   protected createVideoElement(): HTMLVideoElement {
     const video = document.createElement('video');
-    video.className = 'absolute inset-0 h-full w-full bg-black object-contain';
-    video.style.cssText =
-      'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000';
+    // Explicit edges — CSS `inset` is unreliable on webOS Chromium 79.
+    video.setAttribute(
+      'style',
+      'position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;background:transparent;z-index:1;opacity:1;visibility:visible',
+    );
     video.playsInline = true;
     video.preload = 'auto';
-    video.autoplay = false;
+    video.autoplay = true;
     video.muted = false;
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('webkit-playsinline', 'true');
     return video;
   }
 
@@ -340,10 +401,76 @@ export class HTML5Player implements IVideoPlayer {
     if (!this.video) return;
     this.video.removeAttribute('src');
     try {
+      this.video.srcObject = null;
+    } catch {
+      // ignore
+    }
+    try {
       this.video.load();
     } catch {
       // ignore
     }
+  }
+
+  /**
+   * Tear down the current <video> and mount a new one.
+   * Required after mpegts/HLS MSE detach — otherwise zap often plays audio with a black frame.
+   */
+  private async recreateVideoElement(): Promise<void> {
+    const container = this.container;
+    if (!container) return;
+
+    await this.awaitPlayThen(() => {
+      try {
+        this.video?.pause();
+      } catch {
+        // ignore
+      }
+    });
+
+    if (this.video) {
+      try {
+        this.video.removeAttribute('src');
+        this.video.srcObject = null;
+        this.video.load();
+      } catch {
+        // ignore
+      }
+      if (container.contains(this.video)) {
+        container.removeChild(this.video);
+      }
+      this.video = null;
+    }
+
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+
+    // Give Chromium/webOS time to release MediaSource / decoder after zap.
+    await delay(isWebOsLike() ? 400 : 250);
+
+    this.video = this.createVideoElement();
+    this.video.style.objectFit = this.objectFit;
+    this.bindVideoEvents(this.video);
+    container.appendChild(this.video);
+  }
+
+  private nudgeVideoPlane(): void {
+    const video = this.video;
+    if (!video) return;
+    // Force compositor to reattach the video plane (audio-only / black frame after MSE swap).
+    const display = video.style.display;
+    video.style.display = 'none';
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    video.offsetHeight;
+    video.style.display = display || 'block';
+    video.style.transform = 'translateZ(0)';
+    video.style.opacity = '0.99';
+    window.requestAnimationFrame(() => {
+      if (this.video !== video) return;
+      video.style.opacity = '1';
+      video.style.transform = 'none';
+    });
   }
 
   private async loadWithEngine(engine: PlaybackEngine, url: string): Promise<void> {
@@ -454,7 +581,7 @@ export class HTML5Player implements IVideoPlayer {
       };
 
       const hls = new Hls({
-        enableWorker: true,
+        enableWorker: false,
         lowLatencyMode: this.liveMode,
         liveSyncDurationCount: 2,
         liveMaxLatencyDurationCount: 4,
@@ -492,10 +619,9 @@ export class HTML5Player implements IVideoPlayer {
     const isLive = this.liveMode || /\/live\//i.test(url);
     const generation = this.loadGeneration;
 
-    // Prefer proxied URL in browser DEV (CORS). Try direct first on non-dev.
-    const urlsToTry = import.meta.env.DEV
-      ? [resolveMediaFetchUrl(url), url]
-      : [url, resolveMediaFetchUrl(url)];
+    // Prefer proxied URL whenever rewrite applies (DEV Vite proxy or webOS license proxy).
+    const proxied = resolveMediaFetchUrl(url);
+    const urlsToTry = proxied !== url ? [proxied, url] : [url];
 
     let lastError: Error | null = null;
     for (const fetchUrl of urlsToTry) {
@@ -506,6 +632,8 @@ export class HTML5Player implements IVideoPlayer {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         this.destroyEngines();
+        await this.recreateVideoElement();
+        if (generation !== this.loadGeneration) return;
       }
     }
     throw lastError ?? new Error('MPEG-TS load failed');
@@ -522,8 +650,12 @@ export class HTML5Player implements IVideoPlayer {
     await new Promise<void>((resolve, reject) => {
       let settled = false;
       const finish = (fn: () => void): void => {
-        if (settled || generation !== this.loadGeneration) return;
+        if (settled) return;
         settled = true;
+        if (generation !== this.loadGeneration) {
+          reject(new Error('aborted'));
+          return;
+        }
         fn();
       };
 
@@ -536,7 +668,7 @@ export class HTML5Player implements IVideoPlayer {
           hasVideo: true,
         },
         {
-          enableWorker: true,
+          enableWorker: false,
           enableStashBuffer: true,
           stashInitialSize: isLive ? 384 : 512,
           liveBufferLatencyChasing: isLive,
@@ -551,16 +683,13 @@ export class HTML5Player implements IVideoPlayer {
       this.mpegtsPlayer = player;
       player.attachMediaElement(video);
 
-      // Live: don't wait forever for MEDIA_INFO — start ASAP so play() can pull data.
       const timer = window.setTimeout(() => {
-        if (isLive) {
-          finish(resolve);
-        } else if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+        if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
           finish(resolve);
         } else {
           finish(() => reject(new Error('MPEG-TS load timeout')));
         }
-      }, isLive ? 2_500 : 10_000);
+      }, isLive ? 8_000 : 10_000);
 
       player.on(mpegts.Events.ERROR, (...args: unknown[]) => {
         window.clearTimeout(timer);
@@ -568,13 +697,26 @@ export class HTML5Player implements IVideoPlayer {
       });
       player.on(mpegts.Events.MEDIA_INFO, () => {
         window.clearTimeout(timer);
-        finish(resolve);
+        finish(() => {
+          this.nudgeVideoPlane();
+          resolve();
+        });
       });
       video.addEventListener(
         'canplay',
         () => {
           window.clearTimeout(timer);
-          finish(resolve);
+          finish(() => {
+            this.nudgeVideoPlane();
+            resolve();
+          });
+        },
+        { once: true },
+      );
+      video.addEventListener(
+        'playing',
+        () => {
+          this.nudgeVideoPlane();
         },
         { once: true },
       );
@@ -610,9 +752,27 @@ export class HTML5Player implements IVideoPlayer {
       }
       this.mpegtsPlayer = null;
     }
+    if (this.video) {
+      try {
+        this.video.pause();
+        this.video.removeAttribute('src');
+        this.video.srcObject = null;
+      } catch {
+        // ignore
+      }
+    }
   }
 }
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isWebOsLike(): boolean {
+  try {
+    if (typeof window !== 'undefined' && (window.PalmSystem || window.webOS)) return true;
+  } catch {
+    // ignore
+  }
+  return String(import.meta.env.VITE_PLATFORM ?? '') === 'webos';
 }

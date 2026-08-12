@@ -13,8 +13,10 @@ export interface PlaybackControllerOptions {
 
 export class PlaybackController {
   private reconnectCount = 0;
+  private playGeneration = 0;
   private currentUrl: string | null = null;
   private currentChannelId: ChannelId | null = null;
+  private currentChannelName: string | null = null;
   private destroyed = false;
   private liveHint = false;
   private stallTimer: ReturnType<typeof setInterval> | null = null;
@@ -49,6 +51,10 @@ export class PlaybackController {
           channelId: this.currentChannelId,
           error,
         });
+        // Display-only / codec diagnostics must not restart the stream.
+        if (error.code === 'NO_VIDEO_DISPLAY' || error.code === 'NO_VIDEO') {
+          return;
+        }
         if (error.recoverable && this.options.autoReconnect) {
           void this.attemptReconnect();
         }
@@ -76,33 +82,52 @@ export class PlaybackController {
     channelName?: string,
     options?: { isLive?: boolean },
   ): Promise<void> {
+    const generation = ++this.playGeneration;
     this.clearStallWatchdog();
     this.currentUrl = url;
     this.currentChannelId = channelId ?? null;
+    this.currentChannelName = channelName ?? null;
     this.reconnectCount = 0;
     this.liveHint = options?.isLive === true || /\/live\//i.test(url);
     this.lastTime = 0;
     this.stallTicks = 0;
     this.callbacks.onStateChange('loading');
-    await this.player.load(url, { isLive: this.liveHint });
-    if (this.destroyed) return;
+    try {
+      await this.player.load(url, {
+        isLive: this.liveHint,
+        ...(channelName ? { channelName } : {}),
+      });
+    } catch (error) {
+      if (this.destroyed || generation !== this.playGeneration) return;
+      const message = formatLoadFailure(error, channelName);
+      this.callbacks.onError({
+        code: 'LOAD_FAILED',
+        message,
+        recoverable: true,
+      });
+      this.callbacks.onStateChange('error');
+      return;
+    }
+    if (this.destroyed || generation !== this.playGeneration) return;
 
     try {
       await this.player.play();
     } catch (error) {
+      if (this.destroyed || generation !== this.playGeneration) return;
       const message = error instanceof Error ? error.message : String(error);
       if (
         message.includes('interrupted') ||
         (error instanceof Error && error.name === 'AbortError')
       ) {
         await delay(100);
-        if (this.destroyed) return;
+        if (this.destroyed || generation !== this.playGeneration) return;
         await this.player.play();
       } else {
         throw error;
       }
     }
 
+    if (this.destroyed || generation !== this.playGeneration) return;
     this.startStallWatchdog();
 
     if (channelId && channelName) {
@@ -179,6 +204,7 @@ export class PlaybackController {
 
   destroy(): void {
     this.destroyed = true;
+    this.playGeneration++;
     this.clearStallWatchdog();
     this.player.destroy();
   }
@@ -241,13 +267,17 @@ export class PlaybackController {
     this.reconnectCount++;
     this.callbacks.onStateChange('reconnecting');
     this.clearStallWatchdog();
+    const generation = this.playGeneration;
 
     await delay(this.options.reconnectDelayMs);
 
-    if (this.destroyed || !this.currentUrl) return;
+    if (this.destroyed || !this.currentUrl || generation !== this.playGeneration) return;
 
     try {
-      await this.player.load(this.currentUrl, { isLive: this.liveHint });
+      await this.player.load(this.currentUrl, {
+        isLive: this.liveHint,
+        ...(this.currentChannelName ? { channelName: this.currentChannelName } : {}),
+      });
       await this.player.play();
       this.callbacks.onStateChange('playing');
       this.lastTime = 0;
@@ -257,6 +287,27 @@ export class PlaybackController {
       void this.attemptReconnect();
     }
   }
+}
+
+function formatLoadFailure(error: unknown, channelName?: string): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  if (looksLikeHevc(channelName) || /hevc|h\.?265|görüntü yok/i.test(raw)) {
+    return 'Bu kanal HEVC (H.265) olabilir. Emulator / MSE açamayabilir — H.264 kanal deneyin veya gerçek TV’de test edin.';
+  }
+  if (/403|forbidden|erişimi reddetti/i.test(raw)) {
+    return 'Yayın sunucusu erişimi reddetti (403) — başka kanal deneyin.';
+  }
+  if (/notallowed|user didn't interact|user gesture|autoplay/i.test(raw)) {
+    return 'Tarayıcı otomatik oynatmayı engelledi. Yeniden dene’ye basın.';
+  }
+  if (/timeout/i.test(raw)) {
+    return 'Yayın zamanında başlamadı. Başka kanal deneyin veya Yeniden dene’ye basın.';
+  }
+  return raw.trim() || 'Oynatma başlatılamadı';
+}
+
+function looksLikeHevc(name?: string): boolean {
+  return Boolean(name && /hevc|h\.?\s*265|x265/i.test(name));
 }
 
 export function createPlaybackOptions(settings: AppSettings): PlaybackControllerOptions {

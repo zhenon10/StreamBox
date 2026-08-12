@@ -62,27 +62,38 @@ export function buildLivePlaybackCandidates(url: string): string[] {
 
 /** Engines for forced live mode (even without /live/ in URL). */
 export function enginesForLive(): readonly PlaybackEngine[] {
+  // Match last working repo: mpegts MSE first for live Xtream.
   return ['mpegts', 'hls'];
 }
+
+function isLikelyWebOsRuntime(): boolean {
+  try {
+    if (typeof window !== 'undefined' && (window.PalmSystem || window.webOS)) return true;
+  } catch {
+    // ignore
+  }
+  return String(import.meta.env.VITE_PLATFORM ?? '') === 'webos';
+}
+
 export function enginesForUrl(url: string): readonly PlaybackEngine[] {
   const live = /\/live\//i.test(url);
   const kind = detectStreamKind(url);
+  const onWebOs = isLikelyWebOsRuntime();
 
-  // Live: avoid native <video> thrashing (causes play()/pause() AbortError storms).
   if (live) {
-    if (kind === 'hls') return ['hls'];
-    return ['mpegts', 'hls'];
+    if (kind === 'hls') return onWebOs ? ['hls', 'native'] : ['hls'];
+    return onWebOs ? ['mpegts', 'hls', 'native'] : ['mpegts', 'hls'];
   }
 
   switch (kind) {
     case 'hls':
-      return ['hls', 'native'];
+      return onWebOs ? ['hls', 'native'] : ['hls', 'native'];
     case 'mpegts':
-      return ['mpegts', 'hls', 'native'];
+      return onWebOs ? ['mpegts', 'hls', 'native'] : ['mpegts', 'hls', 'native'];
     case 'native':
       return ['native', 'mpegts', 'hls'];
     default:
-      return ['mpegts', 'hls', 'native'];
+      return onWebOs ? ['mpegts', 'hls', 'native'] : ['mpegts', 'hls', 'native'];
   }
 }
 
@@ -180,13 +191,31 @@ export function buildPlaybackCandidates(url: string): string[] {
   return candidates;
 }
 
-/** Dev simulator: route remote media through Vite so MSE (hls.js / mpegts.js) can fetch. */
+/**
+ * Route remote media through a same-origin / CORS-friendly proxy when needed.
+ * - Dev simulator: Vite `/api/stream-proxy`
+ * - Production web + packaged webOS: license API `/v1/stream-proxy` (MSE requires CORS)
+ */
 export function resolveMediaFetchUrl(url: string): string {
   if (typeof window === 'undefined') return url;
-  if (!import.meta.env.DEV) return url;
   if (url.startsWith('/') || url.startsWith(window.location.origin)) return url;
   if (!/^https?:\/\//i.test(url)) return url;
-  return `/api/stream-proxy?url=${encodeURIComponent(url)}`;
+
+  if (import.meta.env.DEV) {
+    return `/api/stream-proxy?url=${encodeURIComponent(url)}`;
+  }
+
+  const licenseBase = String(import.meta.env.VITE_LICENSE_API_URL ?? '')
+    .trim()
+    .replace(/\/$/, '');
+  if (licenseBase && url.startsWith(licenseBase)) {
+    return url;
+  }
+  if (licenseBase && !/YOUR-LICENSE/i.test(licenseBase)) {
+    return `${licenseBase}/v1/stream-proxy?url=${encodeURIComponent(url)}`;
+  }
+
+  return url;
 }
 
 export function formatPlaybackFailure(url: string, cause: string): string {

@@ -14,7 +14,6 @@ import {
 } from '@/application/di/container';
 import { loadPlaylistFromUrl } from '@/application/usecases/playlistUseCases';
 import {
-  CONTENT_SECTION_LABELS,
   emptyCatalog,
   playlistGroupsNeedRepair,
   type ContentCatalog,
@@ -22,29 +21,41 @@ import {
   type SectionCategory,
 } from '@/domain/content/contentSection';
 import type { Channel } from '@/domain/entities';
+import { useRequireLicense } from '@/ui/hooks/useRequireLicense';
+import { useLocale, useT } from '@/i18n/useT';
+import type { MessageKey } from '@/i18n';
 
 const SEARCH_DEBOUNCE_MS = 300;
 const REQUIRE_FILTER_THRESHOLD = 2_000;
 
 const SECTION_ORDER: readonly ContentSection[] = ['live', 'movie', 'series'];
 
+const SECTION_TITLE_KEY: Record<ContentSection, MessageKey> = {
+  live: 'section.live',
+  movie: 'section.movie',
+  series: 'section.series',
+};
+
+const SECTION_HINT_KEY: Record<ContentSection, MessageKey> = {
+  live: 'section.liveHint',
+  movie: 'section.movieHint',
+  series: 'section.seriesHint',
+};
+
 const SECTION_META: Record<
   ContentSection,
-  { readonly icon: string; readonly hint: string; readonly accent: string }
+  { readonly icon: string; readonly accent: string }
 > = {
   live: {
     icon: 'LIVE',
-    hint: 'Canlı yayın kanalları',
     accent: 'from-error-500/35 to-surface-950',
   },
   movie: {
     icon: 'FILM',
-    hint: 'Filmler ve VOD',
     accent: 'from-warning-500/35 to-surface-950',
   },
   series: {
     icon: 'DIZI',
-    hint: 'Dizi ve sezon içerikleri',
     accent: 'from-accent-500/35 to-surface-950',
   },
 };
@@ -52,6 +63,10 @@ const SECTION_META: Record<
 export function ChannelsPage(): ReactNode {
   useRouteFocus('channels');
   const navigate = useNavigate();
+  const t = useT();
+  const locale = useLocale();
+  const numberLocale = locale === 'tr' ? 'tr-TR' : 'en-US';
+  const { checking: licenseChecking, licensed } = useRequireLicense();
   const currentPlaylist = usePlaylistStore((s) => s.currentPlaylist);
   const activeCategory = usePlaylistStore((s) => s.activeCategory);
   const searchQuery = usePlaylistStore((s) => s.searchQuery);
@@ -119,7 +134,7 @@ export function ChannelsPage(): ReactNode {
         playlistGroupsNeedRepair(channelSession.getAll())
       ) {
         repairAttempted.current = true;
-        setRepairMessage('Kategoriler güncelleniyor… playlist yeniden yükleniyor');
+        setRepairMessage(t('channels.repairing'));
         setLoading(true);
         setLoadProgress(0);
         try {
@@ -268,17 +283,14 @@ export function ChannelsPage(): ReactNode {
     [setActiveCategory, setSearchQuery],
   );
 
-  const searchPlaceholder =
-    contentSection === 'live'
-      ? 'Kanal ara…'
-      : contentSection === 'movie'
-        ? 'Film ara…'
-        : 'Dizi ara…';
+  const searchPlaceholder = t('channels.searchPlaceholder');
 
+  if (licenseChecking || !licensed) return null;
   if (!currentPlaylist) return null;
 
-  const sectionLabel = CONTENT_SECTION_LABELS[contentSection];
+  const sectionLabel = t(SECTION_TITLE_KEY[contentSection]);
   const sectionMeta = SECTION_META[contentSection];
+  const sectionHint = t(SECTION_HINT_KEY[contentSection]);
 
   return (
     <div className="flex h-full bg-surface-950">
@@ -286,11 +298,11 @@ export function ChannelsPage(): ReactNode {
       <aside className="flex w-[380px] shrink-0 flex-col border-r border-surface-700 bg-surface-900">
         <div className="border-b border-surface-700 px-6 py-5">
           <p className="text-sm font-medium uppercase tracking-wider text-accent-300">
-            StreamBox
+            IvPlayer
           </p>
           <h2 className="mt-1 truncate text-2xl font-bold text-white">{currentPlaylist.name}</h2>
           <p className="mt-1 text-base text-slate-400">
-            {channelCount.toLocaleString('tr-TR')} içerik
+            {channelCount.toLocaleString(numberLocale)} {t('channels.content')}
           </p>
           {repairMessage && (
             <p className="mt-3 text-sm text-warning-300">{repairMessage}</p>
@@ -331,10 +343,11 @@ export function ChannelsPage(): ReactNode {
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xl font-semibold">
-                      {CONTENT_SECTION_LABELS[section]}
+                      {t(SECTION_TITLE_KEY[section])}
                     </div>
                     <div className={`text-sm ${active ? 'text-white/80' : 'text-slate-400'}`}>
-                      {catalog.counts[section].toLocaleString('tr-TR')} · {meta.hint}
+                      {catalog.counts[section].toLocaleString(numberLocale)} ·{' '}
+                      {t(SECTION_HINT_KEY[section])}
                     </div>
                   </div>
                 </div>
@@ -344,7 +357,9 @@ export function ChannelsPage(): ReactNode {
         </div>
 
         <div className="border-b border-surface-700 p-4">
-          <label className="mb-2 block text-sm font-medium text-slate-400">Ara</label>
+          <label className="mb-2 block text-sm font-medium text-slate-400">
+            {t('channels.searchLabel')}
+          </label>
           <input
             type="search"
             value={searchQuery}
@@ -363,7 +378,7 @@ export function ChannelsPage(): ReactNode {
               onClick={() => setActiveCategory(null)}
             >
               <div className="rounded-xl bg-surface-800 px-4 py-3 text-center text-lg text-slate-200 [.focused_&]:bg-accent-500 [.focused_&]:text-white">
-                ← Tüm kategoriler
+                {t('channels.allCategories')}
               </div>
             </Focusable>
           </div>
@@ -371,12 +386,12 @@ export function ChannelsPage(): ReactNode {
 
         <div className="scrollbar-hidden flex-1 overflow-y-auto p-4">
           <p className="mb-3 px-1 text-sm font-semibold uppercase tracking-wider text-slate-500">
-            Kategoriler
+            {t('channels.categories')}
           </p>
           {catalogLoading ? (
-            <p className="px-2 py-4 text-lg text-slate-500">Hazırlanıyor…</p>
+            <p className="px-2 py-4 text-lg text-slate-500">{t('channels.indexing')}</p>
           ) : sectionCategories.length === 0 ? (
-            <p className="px-2 py-4 text-lg text-slate-500">Bu bölümde kategori yok</p>
+            <p className="px-2 py-4 text-lg text-slate-500">{t('channels.noCategory')}</p>
           ) : (
             sectionCategories.slice(0, 40).map((category, index) => (
               <Focusable
@@ -402,7 +417,7 @@ export function ChannelsPage(): ReactNode {
                         : 'bg-surface-700 text-slate-400'
                     }`}
                   >
-                    {category.channelCount.toLocaleString('tr-TR')}
+                    {category.channelCount.toLocaleString(numberLocale)}
                   </span>
                 </div>
               </Focusable>
@@ -410,8 +425,8 @@ export function ChannelsPage(): ReactNode {
           )}
           {!catalogLoading && sectionCategories.length > 40 && (
             <p className="mt-2 px-2 text-sm text-slate-500">
-              +{(sectionCategories.length - 40).toLocaleString('tr-TR')} kategori daha — sağdan
-              seçin
+              +{(sectionCategories.length - 40).toLocaleString(numberLocale)}{' '}
+              {t('channels.moreCategories')}
             </p>
           )}
         </div>
@@ -423,7 +438,7 @@ export function ChannelsPage(): ReactNode {
           onClick={() => navigate('/')}
         >
           <div className="rounded-2xl bg-surface-800 py-4 text-center text-xl font-medium text-slate-200 [.focused_&]:bg-surface-700">
-            ← Ana Sayfa
+            {t('channels.home')}
           </div>
         </Focusable>
       </aside>
@@ -438,10 +453,10 @@ export function ChannelsPage(): ReactNode {
           <div className="min-w-0">
             <p className="text-base text-slate-300">
               {searchQuery.trim()
-                ? 'Arama sonuçları'
+                ? t('channels.searchResults')
                 : activeCategory
                   ? sectionLabel
-                  : 'Kategori seçin'}
+                  : t('channels.selectCategory')}
             </p>
             <h1 className="mt-1 truncate text-4xl font-bold text-white">
               {searchQuery.trim()
@@ -454,7 +469,7 @@ export function ChannelsPage(): ReactNode {
           </div>
           {showList && (
             <span className="shrink-0 rounded-full bg-surface-800 px-5 py-2 text-lg text-slate-300">
-              {listCount.toLocaleString('tr-TR')} sonuç
+              {listCount.toLocaleString(numberLocale)} {t('channels.results')}
             </span>
           )}
         </header>
@@ -462,7 +477,7 @@ export function ChannelsPage(): ReactNode {
         <div className="relative z-10 flex-1 overflow-hidden px-6 pb-6">
           {!ready || catalogLoading || indexing ? (
             <div className="flex h-full items-center justify-center">
-              <p className="text-2xl text-slate-300">Yükleniyor…</p>
+              <p className="text-2xl text-slate-300">{t('channels.loading')}</p>
             </div>
           ) : showCategoryPicker ? (
             <CategoryGrid
@@ -473,11 +488,11 @@ export function ChannelsPage(): ReactNode {
           ) : !showList ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-12 text-center">
               <p className="text-3xl font-semibold text-white">{sectionLabel}</p>
-              <p className="max-w-2xl text-xl text-slate-400">{sectionMeta.hint}</p>
+              <p className="max-w-2xl text-xl text-slate-400">{sectionHint}</p>
             </div>
           ) : listCount === 0 ? (
             <div className="flex h-full items-center justify-center">
-              <p className="text-2xl text-slate-400">Sonuç bulunamadı</p>
+              <p className="text-2xl text-slate-400">{t('channels.noResults')}</p>
             </div>
           ) : (
             <VirtualChannelList
@@ -504,10 +519,13 @@ function CategoryGrid({
   readonly section: ContentSection;
   readonly onSelect: (name: string) => void;
 }): ReactNode {
+  const t = useT();
+  const locale = useLocale();
+  const numberLocale = locale === 'tr' ? 'tr-TR' : 'en-US';
   if (categories.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-xl text-slate-400">Bu bölümde kategori yok</p>
+        <p className="text-xl text-slate-400">{t('channels.noCategory')}</p>
       </div>
     );
   }
@@ -515,7 +533,7 @@ function CategoryGrid({
   return (
     <div className="scrollbar-hidden h-full overflow-y-auto px-4 pb-4">
       <p className="mb-5 text-lg text-slate-300">
-        {CONTENT_SECTION_LABELS[section]} için bir kategori seçin
+        {t('channels.pickCategory').replace('{s}', t(SECTION_TITLE_KEY[section]))}
       </p>
       <div className="grid grid-cols-3 gap-5">
         {categories.map((category, index) => (
@@ -533,7 +551,7 @@ function CategoryGrid({
                   {categoryTileIcon(category.name, section)}
                 </span>
                 <span className="rounded-full bg-surface-700 px-3 py-1 text-sm tabular-nums text-slate-300 [.focused_&]:bg-white/20 [.focused_&]:text-white">
-                  {category.channelCount.toLocaleString('tr-TR')}
+                  {category.channelCount.toLocaleString(numberLocale)}
                 </span>
               </div>
               <h3 className="line-clamp-2 text-xl font-semibold leading-snug text-white">

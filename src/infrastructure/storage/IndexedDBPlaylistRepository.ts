@@ -39,18 +39,31 @@ export class IndexedDBPlaylistRepository implements IPlaylistRepository {
       channelCount: playlist.channels.length,
     };
 
-    await idbPut(IDBStore.PlaylistMeta, {
-      ...meta,
-      // Huge category lists in IDB meta can stall reads; UI only shows ~120 anyway.
-      categories: meta.categories.slice(0, 300),
-    });
+    try {
+      await idbPut(IDBStore.PlaylistMeta, {
+        ...meta,
+        // Huge category lists in IDB meta can stall reads; UI only shows ~120 anyway.
+        categories: meta.categories.slice(0, 300),
+      });
 
-    if (playlist.channels.length > DEFER_CHANNEL_PERSIST_THRESHOLD) {
-      void savePlaylistChannels(playlist.id, playlist.channels);
-      return;
+      // Always defer channel persistence on large lists; on webOS also defer medium lists
+      // so navigation is not blocked by IndexedDB quotas / slow writes.
+      const defer =
+        playlist.channels.length > DEFER_CHANNEL_PERSIST_THRESHOLD ||
+        playlist.channels.length > 3_000;
+
+      if (defer) {
+        void savePlaylistChannels(playlist.id, playlist.channels).catch(() => {
+          // In-memory session still has channels; persistence is best-effort.
+        });
+        return;
+      }
+
+      await savePlaylistChannels(playlist.id, playlist.channels);
+    } catch (error) {
+      // Keep load successful — ChannelSessionStore holds channels for this session.
+      console.warn('[IndexedDBPlaylistRepository] save failed', error);
     }
-
-    await savePlaylistChannels(playlist.id, playlist.channels);
   }
 
   async getById(id: PlaylistId): Promise<Playlist | null> {

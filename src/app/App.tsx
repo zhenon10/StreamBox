@@ -12,6 +12,12 @@ import { CrashScreen } from '@/ui/components/CrashScreen';
 import { DeveloperOverlay } from '@/ui/dev/DeveloperOverlay';
 import { services, TOKENS } from '@/application/di/container';
 
+function routerBasename(): string {
+  const raw = import.meta.env.BASE_URL || '/';
+  if (raw === '/' || raw === './' || raw === '.') return '/';
+  return raw.replace(/\/$/, '') || '/';
+}
+
 function AppRoutes(): ReactNode {
   const navigate = useNavigate();
 
@@ -51,7 +57,7 @@ export function App(): ReactNode {
       )}
     >
       <AppProviders>
-        <BrowserRouter>
+        <BrowserRouter basename={routerBasename()}>
           <AppRoutes />
         </BrowserRouter>
       </AppProviders>

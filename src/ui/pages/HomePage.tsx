@@ -13,7 +13,6 @@ import {
 } from '@/application/usecases/playlistUseCases';
 import {
   activateLicense,
-  LICENSE_ERROR_MESSAGES_TR,
   validateStoredLicense,
 } from '@/application/usecases/licenseUseCases';
 import { playlistGroupsNeedRepair } from '@/domain/content/contentSection';
@@ -22,53 +21,66 @@ import {
   getOrCreateDeviceId,
   shortDeviceId,
 } from '@/infrastructure/license/DeviceIdentity';
+import { playlistRequiresLicense } from '@/domain/license/storeBuild';
+import { licenseErrorKey, type MessageKey } from '@/i18n';
+import { useLocale, useT } from '@/i18n/useT';
 
 /** LG Content Store build: activation-only (no free-form M3U URL/file). */
-const STORE_BUILD =
-  String(import.meta.env.VITE_STORE_BUILD ?? '').toLowerCase() === 'true';
+const STORE_BUILD = playlistRequiresLicense();
+
+function formatPlaylistLoadError(error: unknown): string {
+  if (error instanceof Error) {
+    const msg = error.message.trim();
+    if (msg) return msg;
+    if (error.name === 'AbortError') return 'Playlist indirme zaman aşımı';
+    if (error.name) return `Playlist yüklenemedi (${error.name})`;
+  }
+  if (typeof error === 'string' && error.trim()) return error.trim();
+  return 'Playlist yüklenemedi';
+}
 
 const ALL_MENU_ITEMS = [
   {
     id: 'activate',
-    title: 'Aktive et',
-    subtitle: 'Aktivasyon kodu ile bağlan',
+    titleKey: 'menu.activate' as const satisfies MessageKey,
+    subtitleKey: 'menu.activateSub' as const satisfies MessageKey,
     icon: '🔑',
     action: 'activate' as const,
   },
   {
     id: 'open-file',
-    title: 'Open M3U File',
-    subtitle: 'Browse and load a local playlist',
+    titleKey: 'menu.openFile' as const satisfies MessageKey,
+    subtitleKey: 'menu.openFileSub' as const satisfies MessageKey,
     icon: '📁',
     action: 'file' as const,
   },
   {
     id: 'open-url',
-    title: 'Open Playlist URL',
-    subtitle: 'Load from remote M3U/M3U8 URL',
+    titleKey: 'menu.openUrl' as const satisfies MessageKey,
+    subtitleKey: 'menu.openUrlSub' as const satisfies MessageKey,
     icon: '🌐',
     action: 'url' as const,
   },
   {
     id: 'favorites',
-    title: 'Favorites',
-    subtitle: 'Your starred channels',
+    titleKey: 'menu.favorites' as const satisfies MessageKey,
+    subtitleKey: 'menu.favoritesSub' as const satisfies MessageKey,
     icon: '★',
     action: 'navigate' as const,
     path: '/favorites',
   },
   {
     id: 'history',
-    title: 'History',
-    subtitle: 'Recently watched channels',
+    titleKey: 'menu.history' as const satisfies MessageKey,
+    subtitleKey: 'menu.historySub' as const satisfies MessageKey,
     icon: '🕐',
     action: 'navigate' as const,
     path: '/history',
   },
   {
     id: 'settings',
-    title: 'Settings',
-    subtitle: 'Playback and app preferences',
+    titleKey: 'menu.settings' as const satisfies MessageKey,
+    subtitleKey: 'menu.settingsSub' as const satisfies MessageKey,
     icon: '⚙',
     action: 'navigate' as const,
     path: '/settings',
@@ -77,9 +89,18 @@ const ALL_MENU_ITEMS = [
 
 type MenuItem = (typeof ALL_MENU_ITEMS)[number];
 
-const MENU_ITEMS: readonly MenuItem[] = STORE_BUILD
-  ? ALL_MENU_ITEMS.filter((item) => item.action !== 'file' && item.action !== 'url')
-  : ALL_MENU_ITEMS;
+function menuItemsForLicense(licensed: boolean): readonly MenuItem[] {
+  if (!STORE_BUILD) {
+    return ALL_MENU_ITEMS;
+  }
+  // HotPlayer-style store: license unlocks the player; user adds their own M3U.
+  if (!licensed) {
+    return ALL_MENU_ITEMS.filter(
+      (item) => item.action === 'activate' || (item.action === 'navigate' && item.path === '/settings'),
+    );
+  }
+  return ALL_MENU_ITEMS;
+}
 
 function buildHomeGraph(
   menuItems: readonly MenuItem[],
@@ -114,10 +135,17 @@ function buildHomeGraph(
 }
 
 export function HomePage(): ReactNode {
+  const t = useT();
+  const locale = useLocale();
   const [licenseSnapshot, setLicenseSnapshot] = useState<LicenseSnapshot | null>(null);
-  const homeGraph = useMemo(
-    () => buildHomeGraph(MENU_ITEMS, Boolean(licenseSnapshot)),
+  const [licenseChecked, setLicenseChecked] = useState(false);
+  const menuItems = useMemo(
+    () => menuItemsForLicense(Boolean(licenseSnapshot)),
     [licenseSnapshot],
+  );
+  const homeGraph = useMemo(
+    () => buildHomeGraph(menuItems, Boolean(licenseSnapshot)),
+    [licenseSnapshot, menuItems],
   );
 
   useRouteFocus('home');
@@ -180,7 +208,7 @@ export function HomePage(): ReactNode {
         await yieldToMain();
         navigate('/channels');
       } catch (error) {
-        setLoadError(error instanceof Error ? error.message : 'Failed to load playlist');
+        setLoadError(formatPlaylistLoadError(error));
         setLoading(false);
       }
     },
@@ -196,20 +224,28 @@ export function HomePage(): ReactNode {
 
   useEffect(() => {
     void (async () => {
-      const recent = await repositories.recentPlaylists.getRecent(10);
-      setRecentPlaylists(recent);
-
       const deviceId = await getOrCreateDeviceId(platform.storage);
       setDeviceShort(shortDeviceId(deviceId));
 
       const validated = await validateStoredLicense(licenseDeps());
       if (validated.ok) {
         setLicenseSnapshot(validated.snapshot);
+        const recent = await repositories.recentPlaylists.getRecent(10);
+        setRecentPlaylists(recent);
       } else {
         setLicenseSnapshot(null);
+        if (STORE_BUILD) {
+          setCurrentPlaylist(null);
+          setRecentPlaylists([]);
+          await repositories.recentPlaylists.clear();
+        } else {
+          const recent = await repositories.recentPlaylists.getRecent(10);
+          setRecentPlaylists(recent);
+        }
       }
+      setLicenseChecked(true);
     })();
-  }, [licenseDeps, setRecentPlaylists]);
+  }, [licenseDeps, setCurrentPlaylist, setRecentPlaylists]);
 
   const handleLoadFile = useCallback(async () => {
     setLoading(true);
@@ -239,7 +275,7 @@ export function HomePage(): ReactNode {
       await yieldToMain();
       navigate('/channels');
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to load playlist');
+      setLoadError(formatPlaylistLoadError(error));
       setLoading(false);
     }
   }, [navigate, setCurrentPlaylist, setLoadError, setLoadProgress, setLoading, setRecentPlaylists]);
@@ -259,7 +295,7 @@ export function HomePage(): ReactNode {
       const label = platform.platform.getDeviceInfo().model;
       const result = await activateLicense(licenseDeps(), activateCode.trim(), label);
       if (!result.ok) {
-        setActivateError(LICENSE_ERROR_MESSAGES_TR[result.error]);
+        setActivateError(t(licenseErrorKey(result.error)));
         setActivating(false);
         return;
       }
@@ -276,16 +312,22 @@ export function HomePage(): ReactNode {
       services.resolve(TOKENS.navigationGraph).popModal();
       setActivateCode('');
       setActivating(false);
-      await loadPlaylistUrl(result.playlistUrl);
+      if (result.playlistUrl?.trim()) {
+        await loadPlaylistUrl(result.playlistUrl);
+      }
     } catch (error) {
-      setActivateError(error instanceof Error ? error.message : LICENSE_ERROR_MESSAGES_TR.unknown);
+      setActivateError(error instanceof Error ? error.message : t(licenseErrorKey('unknown')));
       setActivating(false);
     }
-  }, [activateCode, activating, licenseDeps, loadPlaylistUrl]);
+  }, [activateCode, activating, licenseDeps, loadPlaylistUrl, t]);
 
   const handleOpenLicensedPlaylist = useCallback(async () => {
-    if (!licenseSnapshot?.playlistUrl) return;
-    await loadPlaylistUrl(licenseSnapshot.playlistUrl);
+    if (licenseSnapshot?.playlistUrl?.trim()) {
+      await loadPlaylistUrl(licenseSnapshot.playlistUrl);
+      return;
+    }
+    services.resolve(TOKENS.navigationGraph).pushModal('url-dialog');
+    setUrlDialogOpen(true);
   }, [licenseSnapshot, loadPlaylistUrl]);
 
   const handleMenuAction = (action: MenuItem): void => {
@@ -304,6 +346,8 @@ export function HomePage(): ReactNode {
   };
 
   const handleRecentSelect = async (playlistId: string): Promise<void> => {
+    if (STORE_BUILD && !licenseSnapshot) return;
+
     let playlist = await repositories.playlists.getById(
       playlistId as import('@/domain/entities').PlaylistId,
     );
@@ -342,7 +386,7 @@ export function HomePage(): ReactNode {
   };
 
   const expiresLabel = licenseSnapshot
-    ? new Date(licenseSnapshot.expiresAt).toLocaleDateString('tr-TR')
+    ? new Date(licenseSnapshot.expiresAt).toLocaleDateString(locale === 'tr' ? 'tr-TR' : 'en-US')
     : '';
 
   return (
@@ -350,14 +394,16 @@ export function HomePage(): ReactNode {
       <header className="flex items-center justify-between px-16 pt-12 pb-8">
         <div>
           <h1 className="text-5xl font-bold tracking-tight text-white">
-            Stream<span className="text-accent-400">Box</span> TV
+            Iv<span className="text-accent-400">Player</span>
           </h1>
-          <p className="mt-2 text-xl text-slate-400">Premium IPTV for Smart TV</p>
+          <p className="mt-2 text-xl text-slate-400">{t('app.tagline')}</p>
         </div>
         <div className="text-right text-lg text-slate-500">
           <div>{platform.platform.getDeviceInfo().platform.toUpperCase()}</div>
           {deviceShort && (
-            <div className="mt-1 font-mono text-sm text-slate-600">Cihaz {deviceShort}</div>
+            <div className="mt-1 font-mono text-sm text-slate-600">
+              {t('home.device')} {deviceShort}
+            </div>
           )}
         </div>
       </header>
@@ -365,7 +411,7 @@ export function HomePage(): ReactNode {
       {isLoading && (
         <div className="mx-16 mb-6 rounded-xl bg-surface-800 px-6 py-4">
           <p className="text-lg text-accent-300">
-            Loading playlist… {loadProgress.toLocaleString()} channels
+            {t('home.loadingPlaylist')} {loadProgress.toLocaleString(locale === 'tr' ? 'tr-TR' : 'en-US')}
           </p>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-700">
             <div className="h-full animate-pulse bg-accent-500" style={{ width: '100%' }} />
@@ -374,7 +420,7 @@ export function HomePage(): ReactNode {
       )}
 
       {loadError && (
-        <div className="mx-16 mb-6 rounded-xl bg-error-500/20 px-6 py-4 text-lg text-error-500">
+        <div className="mx-16 mb-6 rounded-xl border-2 border-red-500 bg-red-950 px-6 py-4 text-lg text-white">
           {loadError}
         </div>
       )}
@@ -391,15 +437,19 @@ export function HomePage(): ReactNode {
             <div className="flex items-center justify-between rounded-2xl border border-accent-500/40 bg-accent-500/15 px-8 py-5 [.focused_&]:border-accent-400 [.focused_&]:bg-accent-500/25">
               <div>
                 <p className="text-sm font-medium uppercase tracking-wider text-accent-300">
-                  Lisans aktif · {licenseSnapshot.planName}
+                  {t('home.licenseActive')} · {licenseSnapshot.planName}
                 </p>
                 <p className="mt-1 text-2xl font-semibold text-white">
-                  Lisanslı playlist’i aç
+                  {licenseSnapshot.playlistUrl?.trim()
+                    ? t('home.openLicensed')
+                    : t('home.addPlaylist')}
                 </p>
-                <p className="mt-1 text-base text-slate-400">Bitiş: {expiresLabel}</p>
+                <p className="mt-1 text-base text-slate-400">
+                  {t('home.expires')}: {expiresLabel}
+                </p>
               </div>
               <span className="rounded-xl bg-accent-500 px-6 py-3 text-lg font-semibold text-white">
-                Aç
+                {licenseSnapshot.playlistUrl?.trim() ? t('home.open') : t('home.add')}
               </span>
             </div>
           </Focusable>
@@ -407,13 +457,17 @@ export function HomePage(): ReactNode {
       )}
 
       <section className="px-16 pb-8">
-        <h2 className="mb-6 text-2xl font-semibold text-slate-300">Quick Actions</h2>
+        <h2 className="mb-6 text-2xl font-semibold text-slate-300">{t('home.quickActions')}</h2>
         <div
           className={`grid gap-6 ${
-            STORE_BUILD ? 'grid-cols-2 xl:grid-cols-4' : 'grid-cols-3 xl:grid-cols-6'
+            STORE_BUILD
+              ? menuItems.length <= 2
+                ? 'grid-cols-2'
+                : 'grid-cols-2 xl:grid-cols-4'
+              : 'grid-cols-3 xl:grid-cols-6'
           }`}
         >
-          {MENU_ITEMS.map((item, index) => (
+          {menuItems.map((item, index) => (
             <Focusable
               key={item.id}
               focusId={`menu-${item.id}`}
@@ -423,8 +477,8 @@ export function HomePage(): ReactNode {
               onClick={() => handleMenuAction(item)}
             >
               <Card
-                title={item.title}
-                subtitle={item.subtitle}
+                title={t(item.titleKey)}
+                subtitle={t(item.subtitleKey)}
                 icon={item.icon}
                 focused={false}
                 className="h-full"
@@ -434,9 +488,16 @@ export function HomePage(): ReactNode {
         </div>
       </section>
 
-      {recentPlaylists.length > 0 && (
+      {licenseChecked && STORE_BUILD && !licenseSnapshot && (
+        <section className="mx-16 mb-6 rounded-2xl border border-surface-600 bg-surface-900/80 px-8 py-5">
+          <p className="text-xl font-semibold text-white">{t('home.licenseRequired')}</p>
+          <p className="mt-1 text-base text-slate-400">{t('home.licenseRequiredHint')}</p>
+        </section>
+      )}
+
+      {recentPlaylists.length > 0 && (!STORE_BUILD || Boolean(licenseSnapshot)) && (
         <section className="flex-1 px-16 pb-12">
-          <h2 className="mb-6 text-2xl font-semibold text-slate-300">Recent Playlists</h2>
+          <h2 className="mb-6 text-2xl font-semibold text-slate-300">{t('home.recent')}</h2>
           <div className="flex gap-6 overflow-x-auto pb-4">
             {recentPlaylists.map((entry, index) => (
               <Focusable
@@ -463,7 +524,7 @@ export function HomePage(): ReactNode {
       {urlDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
           <div className="w-[720px] rounded-2xl bg-surface-800 p-8">
-            <h3 className="mb-4 text-3xl font-semibold text-white">Enter Playlist URL</h3>
+            <h3 className="mb-4 text-3xl font-semibold text-white">{t('url.title')}</h3>
             <input
               type="url"
               value={urlInput}
@@ -481,7 +542,7 @@ export function HomePage(): ReactNode {
                 onClick={() => void handleLoadUrl()}
               >
                 <div className="rounded-xl bg-accent-500 py-4 text-center text-xl font-semibold text-white [.focused_&]:bg-accent-400">
-                  Load Playlist
+                  {t('url.load')}
                 </div>
               </Focusable>
               <Focusable
@@ -495,7 +556,7 @@ export function HomePage(): ReactNode {
                 }}
               >
                 <div className="rounded-xl bg-surface-700 py-4 text-center text-xl font-semibold text-white [.focused_&]:bg-surface-600">
-                  Cancel
+                  {t('url.cancel')}
                 </div>
               </Focusable>
             </div>
@@ -506,9 +567,9 @@ export function HomePage(): ReactNode {
       {activateDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
           <div className="w-[760px] rounded-2xl bg-surface-800 p-8">
-            <h3 className="mb-2 text-3xl font-semibold text-white">Lisansı aktive et</h3>
+            <h3 className="mb-2 text-3xl font-semibold text-white">{t('activate.title')}</h3>
             <p className="mb-6 text-lg text-slate-400">
-              Aktivasyon kodunuzu girin. Cihaz kodu:{' '}
+              {t('activate.hint')}{' '}
               <span className="font-mono text-accent-300">{deviceShort || '…'}</span>
             </p>
             <input
@@ -534,7 +595,7 @@ export function HomePage(): ReactNode {
                 onClick={() => void handleActivateSubmit()}
               >
                 <div className="rounded-xl bg-accent-500 py-4 text-center text-xl font-semibold text-white [.focused_&]:bg-accent-400">
-                  {activating ? 'Aktive ediliyor…' : 'Aktive et'}
+                  {activating ? t('activate.activating') : t('activate.submit')}
                 </div>
               </Focusable>
               <Focusable
@@ -549,7 +610,7 @@ export function HomePage(): ReactNode {
                 }}
               >
                 <div className="rounded-xl bg-surface-700 py-4 text-center text-xl font-semibold text-white [.focused_&]:bg-surface-600">
-                  İptal
+                  {t('activate.cancel')}
                 </div>
               </Focusable>
             </div>

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Package StreamBox TV for LG webOS Content Store / device install.
+ * Package IvPlayer for LG webOS Content Store / device install.
  * Output: webos-build/ + .ipk via ares-package (when CLI is available).
  */
 import { cpSync, mkdirSync, rmSync, existsSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
@@ -19,7 +19,7 @@ const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
 console.log('');
 console.log('╔══════════════════════════════════════════════╗');
-console.log('║   StreamBox TV — webOS Package               ║');
+console.log('║   IvPlayer — webOS Package               ║');
 console.log('╠══════════════════════════════════════════════╣');
 console.log('║  Platform : WebOSPlatform                    ║');
 console.log('║  Target   : tv (production)                  ║');
@@ -98,10 +98,14 @@ const licenseUrl =
   process.env.VITE_LICENSE_API_URL ||
   (() => {
     try {
-      const envPath = join(root, '.env.production');
-      if (!existsSync(envPath)) return '';
-      const match = /(?:^|\n)VITE_LICENSE_API_URL=(.+)/.exec(readFileSync(envPath, 'utf8'));
-      return match?.[1]?.trim() ?? '';
+      for (const name of ['.env.production.local', '.env.production']) {
+        const envPath = join(root, name);
+        if (!existsSync(envPath)) continue;
+        const match = /(?:^|\n)VITE_LICENSE_API_URL=(.+)/.exec(readFileSync(envPath, 'utf8'));
+        const value = match?.[1]?.trim();
+        if (value) return value;
+      }
+      return '';
     } catch {
       return '';
     }

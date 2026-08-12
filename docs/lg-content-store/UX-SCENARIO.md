@@ -1,13 +1,13 @@
-# UX scenario — StreamBox TV (LG tester reference)
+# UX scenario — IvPlayer (LG tester reference)
 
-**App ID:** `com.streambox.iptv`  
-**Title:** StreamBox TV  
+**App ID:** `com.ivplayer.iptv`  
+**Title:** IvPlayer  
 **Type:** web app (FHD 1920×1080)  
 **Primary input:** TV remote (D-pad + OK + Back)
 
 ## Purpose
 
-StreamBox TV is a licensed IPTV player for LG webOS. Users activate with a subscription code; the app loads their playlist and plays live TV / VOD categories.
+IvPlayer is a licensed IPTV player for LG webOS. Users activate with a subscription code; the app loads their playlist and plays live TV / VOD categories.
 
 Store build does **not** allow arbitrary M3U URL or local file open.
 
@@ -19,7 +19,7 @@ Store build does **not** allow arbitrary M3U URL or local file open.
 
 ## Scenario A — First launch & activate
 
-1. Launch StreamBox TV from Launcher.
+1. Launch IvPlayer from Launcher.
 2. Splash appears, then **Home**.
 3. Focus **Aktive et** → OK.
 4. Enter activation code → **Aktive et**.
@@ -53,7 +53,7 @@ Store build does **not** allow arbitrary M3U URL or local file open.
 ## Scenario E — Relaunch
 
 1. While on Channels or Player, press Home (TV).
-2. Re-open StreamBox from Recent / Launcher.
+2. Re-open IvPlayer from Recent / Launcher.
 3. App returns usable (Home or previous content) without permanent black screen.
 
 ## Notes for testers

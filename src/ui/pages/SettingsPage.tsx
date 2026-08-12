@@ -17,11 +17,13 @@ import {
   getOrCreateDeviceId,
   shortDeviceId,
 } from '@/infrastructure/license/DeviceIdentity';
+import { APP_LOCALES, LOCALE_LABELS, type AppLocale, type MessageKey } from '@/i18n';
+import { useLocale, useT } from '@/i18n/useT';
 
 interface SettingItem {
-  readonly id: keyof AppSettings;
-  readonly label: string;
-  readonly description: string;
+  readonly id: Exclude<keyof AppSettings, 'locale'>;
+  readonly labelKey: MessageKey;
+  readonly descriptionKey: MessageKey;
   readonly type: 'boolean' | 'number';
   readonly min?: number;
   readonly max?: number;
@@ -31,14 +33,14 @@ interface SettingItem {
 const SETTING_ITEMS: SettingItem[] = [
   {
     id: 'autoReconnect',
-    label: 'Auto Reconnect',
-    description: 'Automatically retry on playback errors',
+    labelKey: 'settings.autoReconnect',
+    descriptionKey: 'settings.autoReconnectDesc',
     type: 'boolean',
   },
   {
     id: 'reconnectAttempts',
-    label: 'Reconnect Attempts',
-    description: 'Maximum retry attempts before giving up',
+    labelKey: 'settings.reconnectAttempts',
+    descriptionKey: 'settings.reconnectAttemptsDesc',
     type: 'number',
     min: 1,
     max: 20,
@@ -46,8 +48,8 @@ const SETTING_ITEMS: SettingItem[] = [
   },
   {
     id: 'reconnectDelayMs',
-    label: 'Reconnect Delay (ms)',
-    description: 'Delay between reconnect attempts',
+    labelKey: 'settings.reconnectDelay',
+    descriptionKey: 'settings.reconnectDelayDesc',
     type: 'number',
     min: 1000,
     max: 30000,
@@ -55,8 +57,8 @@ const SETTING_ITEMS: SettingItem[] = [
   },
   {
     id: 'bufferSizeSeconds',
-    label: 'Buffer Size (seconds)',
-    description: 'Playback buffer duration',
+    labelKey: 'settings.bufferSize',
+    descriptionKey: 'settings.bufferSizeDesc',
     type: 'number',
     min: 1,
     max: 30,
@@ -64,8 +66,8 @@ const SETTING_ITEMS: SettingItem[] = [
   },
   {
     id: 'defaultVolume',
-    label: 'Default Volume',
-    description: 'Initial volume level (0-100)',
+    labelKey: 'settings.defaultVolume',
+    descriptionKey: 'settings.defaultVolumeDesc',
     type: 'number',
     min: 0,
     max: 100,
@@ -73,14 +75,14 @@ const SETTING_ITEMS: SettingItem[] = [
   },
   {
     id: 'showChannelNumbers',
-    label: 'Show Channel Numbers',
-    description: 'Display channel numbers in lists',
+    labelKey: 'settings.showChannelNumbers',
+    descriptionKey: 'settings.showChannelNumbersDesc',
     type: 'boolean',
   },
   {
     id: 'enableHardwareAcceleration',
-    label: 'Hardware Acceleration',
-    description: 'Use GPU decoding when available',
+    labelKey: 'settings.hwAccel',
+    descriptionKey: 'settings.hwAccelDesc',
     type: 'boolean',
   },
 ];
@@ -88,6 +90,8 @@ const SETTING_ITEMS: SettingItem[] = [
 export function SettingsPage(): ReactNode {
   useRouteFocus('settings');
   const navigate = useNavigate();
+  const t = useT();
+  const locale = useLocale();
   const { setSettings } = usePlaylistStore();
   const [localSettings, setLocalSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
@@ -111,7 +115,7 @@ export function SettingsPage(): ReactNode {
     })();
   }, [setSettings]);
 
-  const handleToggle = (key: keyof AppSettings): void => {
+  const handleToggle = (key: Exclude<keyof AppSettings, 'locale'>): void => {
     setLocalSettings((prev) => {
       const current = prev[key];
       if (typeof current !== 'boolean') return prev;
@@ -120,7 +124,10 @@ export function SettingsPage(): ReactNode {
     setSaved(false);
   };
 
-  const handleNumberChange = (key: keyof AppSettings, delta: number): void => {
+  const handleNumberChange = (
+    key: Exclude<keyof AppSettings, 'locale'>,
+    delta: number,
+  ): void => {
     setLocalSettings((prev) => {
       const current = prev[key];
       if (typeof current !== 'number') return prev;
@@ -131,6 +138,14 @@ export function SettingsPage(): ReactNode {
       const next = Math.min(max, Math.max(min, current + delta * step));
       return { ...prev, [key]: next };
     });
+    setSaved(false);
+  };
+
+  const handleLocale = (next: AppLocale): void => {
+    const nextSettings = { ...localSettings, locale: next };
+    setLocalSettings(nextSettings);
+    setSettings(nextSettings);
+    void repositories.settings.save(nextSettings);
     setSaved(false);
   };
 
@@ -160,32 +175,43 @@ export function SettingsPage(): ReactNode {
         storage: platform.storage,
         licenseStore: services.resolve(TOKENS.licenseStore),
       });
+      await repositories.recentPlaylists.clear();
       setLicense(null);
+      usePlaylistStore.getState().setCurrentPlaylist(null);
+      usePlaylistStore.getState().setRecentPlaylists([]);
+      usePlaylistStore.getState().setFavorites([]);
     } finally {
       setLicenseBusy(false);
     }
   };
 
+  const dateLocale = locale === 'tr' ? 'tr-TR' : 'en-US';
+
   return (
     <div className="flex h-full flex-col bg-surface-950">
       <header className="flex items-center justify-between border-b border-surface-800 px-16 py-10">
         <div>
-          <h1 className="text-4xl font-bold text-white">Settings</h1>
-          <p className="mt-2 text-xl text-slate-400">Configure playback and display options</p>
+          <h1 className="text-4xl font-bold text-white">{t('settings.title')}</h1>
+          <p className="mt-2 text-xl text-slate-400">{t('settings.subtitle')}</p>
         </div>
         <Focusable focusId="settings-back" focusGroup="settings-nav" onClick={() => navigate('/')}>
           <span className="rounded-xl bg-surface-800 px-8 py-3 text-xl text-white [.focused_&]:bg-surface-700">
-            ← Back
+            ← {t('settings.back')}
           </span>
         </Focusable>
       </header>
 
       <div className="scrollbar-hidden flex-1 overflow-y-auto px-16 py-8">
         <div className="mx-auto max-w-4xl space-y-4">
+          <LanguageSelector
+            value={localSettings.locale}
+            onChange={handleLocale}
+          />
           <LicensePanel
             license={license}
             deviceId={deviceId}
             busy={licenseBusy}
+            dateLocale={dateLocale}
             onClear={() => void handleClearLicense()}
           />
           <ThemeSelector />
@@ -195,8 +221,8 @@ export function SettingsPage(): ReactNode {
               className="flex items-center justify-between rounded-2xl bg-surface-900 px-8 py-6"
             >
               <div className="flex-1 pr-8">
-                <h3 className="text-2xl font-semibold text-white">{item.label}</h3>
-                <p className="mt-1 text-lg text-slate-400">{item.description}</p>
+                <h3 className="text-2xl font-semibold text-white">{t(item.labelKey)}</h3>
+                <p className="mt-1 text-lg text-slate-400">{t(item.descriptionKey)}</p>
               </div>
 
               {item.type === 'boolean' ? (
@@ -258,7 +284,7 @@ export function SettingsPage(): ReactNode {
           onClick={() => void handleSave()}
         >
           <span className="rounded-xl bg-accent-500 px-10 py-4 text-xl font-semibold text-white [.focused_&]:bg-accent-400">
-            Save Settings
+            {t('settings.save')}
           </span>
         </Focusable>
 
@@ -269,7 +295,7 @@ export function SettingsPage(): ReactNode {
           onClick={handleReset}
         >
           <span className="rounded-xl bg-surface-800 px-10 py-4 text-xl text-white [.focused_&]:bg-surface-700">
-            Reset to Defaults
+            {t('settings.reset')}
           </span>
         </Focusable>
 
@@ -280,12 +306,47 @@ export function SettingsPage(): ReactNode {
           onClick={() => void handleClearHistory()}
         >
           <span className="rounded-xl bg-surface-800 px-10 py-4 text-xl text-white [.focused_&]:bg-surface-700">
-            Clear History
+            {t('settings.clearHistory')}
           </span>
         </Focusable>
 
-        {saved && <span className="text-lg text-success-500">Settings saved</span>}
+        {saved && <span className="text-lg text-success-500">{t('settings.saved')}</span>}
       </footer>
+    </div>
+  );
+}
+
+function LanguageSelector({
+  value,
+  onChange,
+}: {
+  readonly value: AppLocale;
+  readonly onChange: (locale: AppLocale) => void;
+}): ReactNode {
+  const t = useT();
+  return (
+    <div className="mb-8 rounded-2xl bg-surface-900 px-8 py-6">
+      <h3 className="mb-4 text-2xl font-semibold text-white">{t('settings.language')}</h3>
+      <div className="flex flex-wrap gap-4">
+        {APP_LOCALES.map((loc) => (
+          <Focusable
+            key={loc}
+            focusId={`locale-${loc}`}
+            focusGroup="settings-locale"
+            onClick={() => onChange(loc)}
+          >
+            <div
+              className={`rounded-xl px-6 py-3 text-lg transition-colors [.focused_&]:ring-2 [.focused_&]:ring-accent-500 ${
+                value === loc
+                  ? 'bg-accent-500/30 text-accent-300'
+                  : 'bg-surface-800 text-slate-300'
+              }`}
+            >
+              {LOCALE_LABELS[loc]}
+            </div>
+          </Focusable>
+        ))}
+      </div>
     </div>
   );
 }
@@ -294,19 +355,22 @@ function LicensePanel({
   license,
   deviceId,
   busy,
+  dateLocale,
   onClear,
 }: {
   readonly license: LicenseSnapshot | null;
   readonly deviceId: string;
   readonly busy: boolean;
+  readonly dateLocale: string;
   readonly onClear: () => void;
 }): ReactNode {
+  const t = useT();
   return (
     <div className="mb-8 rounded-2xl bg-surface-900 px-8 py-6">
-      <h3 className="mb-4 text-2xl font-semibold text-white">Lisans</h3>
+      <h3 className="mb-4 text-2xl font-semibold text-white">{t('settings.license')}</h3>
       <div className="space-y-2 text-lg text-slate-300">
         <p>
-          Cihaz ID:{' '}
+          {t('settings.deviceId')}:{' '}
           <span className="font-mono text-accent-300">
             {deviceId ? shortDeviceId(deviceId) : '…'}
           </span>
@@ -314,18 +378,22 @@ function LicensePanel({
         {license ? (
           <>
             <p>
-              Plan: <span className="text-white">{license.planName}</span>
+              {t('settings.plan')}: <span className="text-white">{license.planName}</span>
             </p>
             <p>
-              Bitiş:{' '}
+              {t('settings.expires')}:{' '}
               <span className="text-white">
-                {new Date(license.expiresAt).toLocaleDateString('tr-TR')}
+                {new Date(license.expiresAt).toLocaleDateString(dateLocale)}
               </span>
             </p>
-            <p className="truncate text-base text-slate-500">{license.playlistUrl}</p>
+            {license.playlistUrl?.trim() ? (
+              <p className="truncate text-base text-slate-500">{license.playlistUrl}</p>
+            ) : (
+              <p className="text-base text-slate-500">{t('settings.userPlaylist')}</p>
+            )}
           </>
         ) : (
-          <p className="text-slate-400">Aktif lisans yok — ana ekrandan aktive edin.</p>
+          <p className="text-slate-400">{t('settings.noLicense')}</p>
         )}
       </div>
       {license && (
@@ -337,7 +405,7 @@ function LicensePanel({
             onClick={onClear}
           >
             <span className="rounded-xl bg-surface-800 px-6 py-3 text-lg text-white [.focused_&]:bg-error-500">
-              {busy ? 'Kaldırılıyor…' : 'Lisansı kaldır'}
+              {busy ? t('settings.clearing') : t('settings.clearLicense')}
             </span>
           </Focusable>
         </div>
@@ -347,6 +415,7 @@ function LicensePanel({
 }
 
 function ThemeSelector(): ReactNode {
+  const t = useT();
   const themeService = services.resolve(TOKENS.themeService);
   const themes = themeService.getAvailableThemes();
   const [activeTheme, setActiveTheme] = useState(themeService.getCurrentTheme().id);
@@ -358,7 +427,7 @@ function ThemeSelector(): ReactNode {
 
   return (
     <div className="mb-8 rounded-2xl bg-surface-900 px-8 py-6">
-      <h3 className="mb-4 text-2xl font-semibold text-white">Theme</h3>
+      <h3 className="mb-4 text-2xl font-semibold text-white">{t('settings.theme')}</h3>
       <div className="flex flex-wrap gap-4">
         {themes.map((theme: ThemeDefinition) => (
           <Focusable

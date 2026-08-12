@@ -11,8 +11,11 @@ export class LicenseStore {
     if (!raw) return null;
     try {
       const parsed = JSON.parse(raw) as LicenseSnapshot;
-      if (!parsed.token || !parsed.deviceId || !parsed.playlistUrl) return null;
-      return parsed;
+      if (!parsed.token || !parsed.deviceId) return null;
+      return {
+        ...parsed,
+        playlistUrl: typeof parsed.playlistUrl === 'string' ? parsed.playlistUrl : '',
+      };
     } catch {
       return null;
     }

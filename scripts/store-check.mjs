@@ -55,7 +55,7 @@ function checkPng(rel, expectW, expectH) {
   }
 }
 
-console.log('\nStreamBox — LG Content Store check\n');
+console.log('\nIvPlayer — LG Content Store check\n');
 
 checkPng('webos/icon.png', 80, 80);
 checkPng('webos/icon-large.png', 130, 130);

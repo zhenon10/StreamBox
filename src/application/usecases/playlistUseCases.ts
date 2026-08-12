@@ -173,13 +173,17 @@ async function savePlaylistFromContent(
 
   await yieldToMain();
 
-  const recentEntry: RecentPlaylistEntry = {
-    id,
-    name,
-    source,
-    lastOpenedAt: Date.now(),
-  };
-  await deps.recentRepo.add(recentEntry);
+  try {
+    const recentEntry: RecentPlaylistEntry = {
+      id,
+      name,
+      source,
+      lastOpenedAt: Date.now(),
+    };
+    await deps.recentRepo.add(recentEntry);
+  } catch {
+    // Recent list is optional — do not fail the whole load on TV storage quirks.
+  }
 
   onProgress?.({ loaded: channels.length, total: channels.length });
 

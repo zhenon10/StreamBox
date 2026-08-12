@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IvPlayer Admin giriş</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a222c;
+      --border: #334155;
+      --text: #e8eef5;
+      --muted: #94a3b8;
+      --accent: #0d9488;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    form {
+      width: min(22rem, 92vw);
+      padding: 1.5rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    h1 { margin: 0 0 0.35rem; font-size: 1.2rem; }
+    p { margin: 0 0 1rem; color: var(--muted); font-size: 0.9rem; }
+    label { display: block; margin-bottom: 0.35rem; font-size: 0.85rem; color: var(--muted); }
+    input {
+      width: 100%;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #0f1419;
+      color: var(--text);
+    }
+    button {
+      margin-top: 1rem;
+      width: 100%;
+      padding: 0.7rem;
+      border: 0;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .err { color: #fca5a5; font-size: 0.85rem; min-height: 1.2rem; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <form id="login" autocomplete="off">
+    <h1>IvPlayer lisans</h1>
+    <p>Yönetim paneli şifre ile açılır.</p>
+    <label for="key">Admin anahtarı</label>
+    <input id="key" name="key" type="password" required autofocus />
+    <button type="submit">Giriş</button>
+    <p class="err" id="err"></p>
+  </form>
+  <script>
+    document.getElementById('login').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('err');
+      err.textContent = '';
+      const key = document.getElementById('key').value;
+      const res = await fetch('/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ key }),
+      });
+      if (!res.ok) {
+        err.textContent = 'Anahtar hatalı.';
+        return;
+      }
+      window.location.href = '/admin';
+    });
+  </script>
+</body>
+</html>

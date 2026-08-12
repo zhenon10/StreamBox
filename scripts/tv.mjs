@@ -39,7 +39,7 @@ switch (action) {
     break;
   default:
     console.log(`
-StreamBox TV — LG webOS workflow
+IvPlayer — LG webOS workflow
 
   npm run tv:package              Build + package IPK
   npm run tv:install -- --device <name>

@@ -33,6 +33,7 @@ export interface IRecentPlaylistsRepository {
   add(entry: RecentPlaylistEntry): Promise<void>;
   getRecent(limit: number): Promise<readonly RecentPlaylistEntry[]>;
   remove(id: PlaylistId): Promise<void>;
+  clear(): Promise<void>;
 }
 
 export interface ISettingsRepository {

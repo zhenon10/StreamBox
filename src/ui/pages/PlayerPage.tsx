@@ -28,6 +28,7 @@ import { channelSession } from '@/application/channels/ChannelSessionStore';
 import { classifyChannel } from '@/domain/content/contentSection';
 import { repositories, platform, services, TOKENS } from '@/application/di/container';
 import { isWebOS } from '@/platform/detectPlatform';
+import { useRequireLicense } from '@/ui/hooks/useRequireLicense';
 import {
   PlaybackController,
   createPlaybackOptions,
@@ -36,21 +37,29 @@ import { recordWatchHistory, toggleFavorite } from '@/application/usecases/playl
 import { EventKind } from '@/domain/events/ApplicationEvent';
 import { MetricName } from '@/application/performance/PerformanceMonitor';
 import type { ChannelId } from '@/domain/entities';
+import { useT } from '@/i18n/useT';
+import type { MessageKey } from '@/i18n';
 
 type ObjectFit = 'contain' | 'cover' | 'fill';
 
 const FIT_CYCLE: readonly ObjectFit[] = ['contain', 'cover', 'fill'];
-const FIT_LABELS: Record<ObjectFit, string> = {
-  contain: 'Sığdır',
-  cover: 'Doldur',
-  fill: 'Uzat',
+const FIT_KEYS: Record<ObjectFit, MessageKey> = {
+  contain: 'player.fitContain',
+  cover: 'player.fitCover',
+  fill: 'player.fitFill',
 };
-/** Browser: auto-hide quickly. webOS TV: keep chrome longer for remote UX. */
-const OVERLAY_HIDE_MS = isWebOS() ? 15_000 : 6_000;
+/** Browser: auto-hide quickly. webOS TV: hide sooner while playing so video plane is visible. */
+const OVERLAY_HIDE_MS = isWebOS() ? 3_000 : 6_000;
 const TV_UI = isWebOS();
+
+function delayMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export function PlayerPage(): ReactNode {
   useRouteFocus('player');
+  const t = useT();
+  const { checking: licenseChecking, licensed } = useRequireLicense();
   const { channelId } = useParams<{ channelId: string }>();
   const navigate = useNavigate();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -241,6 +250,8 @@ export function PlayerPage(): ReactNode {
     });
   }, [bumpOverlay, channel, setPlaybackError]);
 
+  // Full player recreate per channel — same path as leaving the list and reopening.
+  // Reusing MSE/mpegts on one session causes audio + black video on zap (web + webOS).
   useEffect(() => {
     if (!currentPlaylist || !channelId) {
       navigate('/channels');
@@ -261,53 +272,66 @@ export function PlayerPage(): ReactNode {
     setDuration(0);
     setShowInfo(false);
     setShowOverlay(true);
+    setPlaybackError(null);
+    setPlaybackState('loading');
     platform.platform.setKeepScreenOn(true);
 
     const perfMonitor = services.resolve(TOKENS.performanceMonitor);
+    const eventPublisher = services.resolve(TOKENS.eventPublisher);
     perfMonitor.mark('player-start');
 
-    const videoPlayer = services.resolve(TOKENS.videoPlayerFactory).create();
-    const eventPublisher = services.resolve(TOKENS.eventPublisher);
-    const options = createPlaybackOptions(settings);
-    const controller = new PlaybackController(
-      videoPlayer,
-      options,
-      {
-        onStateChange: setPlaybackState,
-        onError: setPlaybackError,
-        onTimeUpdate: (current, dur) => {
-          setCurrentTime(current);
-          setDuration(Number.isFinite(dur) && dur > 0 ? dur : 0);
+    let cancelled = false;
+    let controller: PlaybackController | null = null;
+
+    const start = async (): Promise<void> => {
+      // Let the previous channel's MediaSource / decoder fully release.
+      await delayMs(isWebOS() ? 450 : 280);
+      if (cancelled) return;
+
+      const el = containerRef.current;
+      if (!el) {
+        window.requestAnimationFrame(() => {
+          void start();
+        });
+        return;
+      }
+
+      const videoPlayer = services.resolve(TOKENS.videoPlayerFactory).create();
+      const options = createPlaybackOptions(settings);
+      controller = new PlaybackController(
+        videoPlayer,
+        options,
+        {
+          onStateChange: setPlaybackState,
+          onError: setPlaybackError,
+          onTimeUpdate: (current, dur) => {
+            setCurrentTime(current);
+            setDuration(Number.isFinite(dur) && dur > 0 ? dur : 0);
+          },
         },
-      },
-      eventPublisher,
-    );
+        eventPublisher,
+      );
+      controllerRef.current = controller;
 
-    controllerRef.current = controller;
+      controller.attach(el);
+      controller.setVolume(settings.defaultVolume);
+      setVolume(settings.defaultVolume);
+      setMuted(false);
+      controller.setObjectFit(objectFit);
 
-    if (containerRef.current) {
-      controller.attach(containerRef.current);
-    }
+      eventPublisher.publish(EventKind.ChannelChanged, {
+        channelId: found.id,
+        channelName: found.name,
+        playlistId: currentPlaylist.id,
+      });
+      bumpOverlay();
 
-    controller.setVolume(settings.defaultVolume);
-    setVolume(settings.defaultVolume);
-    setMuted(false);
-    controller.setObjectFit(objectFit);
-
-    eventPublisher.publish(EventKind.ChannelChanged, {
-      channelId: found.id,
-      channelName: found.name,
-      playlistId: currentPlaylist.id,
-    });
-
-    bumpOverlay();
-
-    void (async () => {
       try {
         setPlaybackError(null);
         await controller.play(found.url, found.id, found.name, {
           isLive: classifyChannel(found) === 'live',
         });
+        if (cancelled) return;
         setPlaybackError(null);
         perfMonitor.measure(MetricName.PlayerStartupLatency, 'player-start', 'ms');
         await recordWatchHistory(
@@ -321,6 +345,7 @@ export function PlayerPage(): ReactNode {
           eventPublisher,
         );
       } catch (error) {
+        if (cancelled) return;
         setPlaybackError({
           code: 'PLAY_FAILED',
           message: error instanceof Error ? error.message : 'Failed to start playback',
@@ -328,21 +353,25 @@ export function PlayerPage(): ReactNode {
         });
         setPlaybackState('error');
       }
-    })();
+    };
+
+    void start();
 
     return () => {
+      cancelled = true;
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-      controller.destroy();
-      controllerRef.current = null;
+      controller?.destroy();
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
+      }
       platform.platform.setKeepScreenOn(false);
       setPlaybackState('idle');
       setPlaybackError(null);
       setCurrentTime(0);
       setDuration(0);
     };
-    // Restart only when channel changes — fit applied in separate effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelId, currentPlaylist]);
+  }, [channelId, currentPlaylist?.id]);
 
   useEffect(() => {
     controllerRef.current?.setObjectFit(objectFit);
@@ -441,6 +470,7 @@ export function PlayerPage(): ReactNode {
     zapChannel,
   ]);
 
+  if (licenseChecking || !licensed) return null;
   if (!channel) return null;
 
   const btnSize = TV_UI ? 'h-16 w-16' : 'h-14 w-14';
@@ -455,11 +485,28 @@ export function PlayerPage(): ReactNode {
         if (!showOverlay) bumpOverlay();
       }}
     >
-      <div ref={containerRef} className="absolute inset-0 h-full w-full overflow-hidden" />
+      <div
+        key={channelId}
+        ref={containerRef}
+        className="absolute top-0 right-0 bottom-0 left-0 h-full w-full overflow-hidden"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1,
+          background: '#101820',
+        }}
+      />
 
       {showOverlay && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col bg-gradient-to-t from-black via-black/40 to-black/80">
-          <header className="pointer-events-auto flex shrink-0 items-start justify-between gap-6 px-14 pt-10 pb-4">
+        <div className="pointer-events-none absolute top-0 right-0 bottom-0 left-0 z-20 flex flex-col">
+          {/* Top chrome only — do NOT paint a full-screen dimmer over the video plane. */}
+          <header
+            className="pointer-events-auto flex shrink-0 items-start justify-between gap-6 px-14 pt-10 pb-4"
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.85), rgba(0,0,0,0))' }}
+          >
             <div className="flex min-w-0 items-center gap-6">
               <ChannelLogo name={channel.name} logoUrl={channel.logoUrl} size="lg" />
               <div className="min-w-0">
@@ -473,19 +520,21 @@ export function PlayerPage(): ReactNode {
           {showInfo && (
             <div className="pointer-events-auto mx-14 mt-2 max-w-3xl rounded-2xl bg-black/70 px-6 py-5">
               <p className="text-lg text-slate-200">
-                <span className="text-slate-400">Tür:</span>{' '}
-                {contentKind === 'live' ? 'Canlı TV' : contentKind === 'movie' ? 'Film' : 'Dizi'}
+                <span className="text-slate-400">{t('player.type')}:</span>{' '}
+                {contentKind === 'live'
+                  ? t('section.live')
+                  : contentKind === 'movie'
+                    ? t('section.movie')
+                    : t('section.series')}
               </p>
               <p className="mt-2 break-all text-sm text-slate-400">{channel.url}</p>
-              <p className="mt-2 text-sm text-slate-500">
-                Kumanda: OK kontroller · ↑/↓ kanal · ←/→ seek · Back geri
-              </p>
+              <p className="mt-2 text-sm text-slate-500">{t('player.remoteHint')}</p>
             </div>
           )}
 
           {playbackError && (
-            <div className="pointer-events-auto mx-14 mt-6 rounded-2xl bg-error-500/20 px-8 py-6">
-              <p className="text-2xl font-semibold text-error-500">{playbackError.message}</p>
+            <div className="pointer-events-auto mx-14 mt-6 rounded-2xl border-2 border-red-500 bg-red-950 px-8 py-6">
+              <p className="text-2xl font-semibold text-white">{playbackError.message}</p>
               {playbackError.recoverable && (
                 <Focusable
                   focusId="player-retry"
@@ -493,11 +542,11 @@ export function PlayerPage(): ReactNode {
                   focusPriority={10}
                   className="mt-4 inline-block"
                   onClick={handleRetry}
-                  aria-label="Yeniden dene"
+                  aria-label={t('player.retry')}
                 >
                   <span className="inline-flex items-center gap-3 rounded-xl bg-accent-500 px-8 py-3 text-xl font-semibold text-white [.focused_&]:bg-accent-400">
                     <IconRetry className="h-6 w-6" />
-                    Yeniden dene
+                    {t('player.retry')}
                   </span>
                 </Focusable>
               )}
@@ -506,7 +555,10 @@ export function PlayerPage(): ReactNode {
 
           <div className="flex-1" />
 
-          <footer className="pointer-events-auto shrink-0 px-10 pb-10 pt-4">
+          <footer
+            className="pointer-events-auto shrink-0 px-10 pb-10 pt-4"
+            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0))' }}
+          >
             <TimelineBar
               currentTime={currentTime}
               duration={duration}
@@ -522,7 +574,7 @@ export function PlayerPage(): ReactNode {
             <div className="mt-5 flex items-center justify-center gap-5">
               <IconButton
                 focusId="player-ch-prev"
-                label="Önceki kanal"
+                label={t('player.prevChannel')}
                 priority={9}
                 size={btnSize}
                 onClick={() => zapChannel(-1)}
@@ -533,7 +585,7 @@ export function PlayerPage(): ReactNode {
               {seekable && (
                 <IconButton
                   focusId="player-seek-back"
-                  label="30 saniye geri"
+                  label={t('player.seekBack')}
                   priority={9}
                   size={btnSize}
                   onClick={() => handleSkip(-30)}
@@ -544,7 +596,13 @@ export function PlayerPage(): ReactNode {
 
               <IconButton
                 focusId="player-playpause"
-                label={isBuffering ? 'Yükleniyor' : isPlaying ? 'Duraklat' : 'Oynat'}
+                label={
+                  isBuffering
+                    ? t('player.loading')
+                    : isPlaying
+                      ? t('player.pause')
+                      : t('player.play')
+                }
                 priority={10}
                 size={TV_UI ? 'h-20 w-20' : 'h-16 w-16'}
                 accent
@@ -562,7 +620,7 @@ export function PlayerPage(): ReactNode {
               {seekable && (
                 <IconButton
                   focusId="player-seek-forward"
-                  label="30 saniye ileri"
+                  label={t('player.seekForward')}
                   priority={8}
                   size={btnSize}
                   onClick={() => handleSkip(30)}
@@ -573,7 +631,7 @@ export function PlayerPage(): ReactNode {
 
               <IconButton
                 focusId="player-ch-next"
-                label="Sonraki kanal"
+                label={t('player.nextChannel')}
                 priority={9}
                 size={btnSize}
                 onClick={() => zapChannel(1)}
@@ -583,7 +641,7 @@ export function PlayerPage(): ReactNode {
 
               <IconButton
                 focusId="player-stop"
-                label="Durdur"
+                label={t('player.stop')}
                 priority={8}
                 size={btnSize}
                 onClick={handleStop}
@@ -597,7 +655,7 @@ export function PlayerPage(): ReactNode {
               <div className="flex items-center gap-3">
                 <IconButton
                   focusId="player-back"
-                  label="Geri"
+                  label={t('player.back')}
                   priority={7}
                   size={btnSize}
                   onClick={() => navigate('/channels')}
@@ -607,7 +665,7 @@ export function PlayerPage(): ReactNode {
 
                 <IconButton
                   focusId="player-favorite"
-                  label={isFavorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+                  label={isFavorite ? t('player.removeFavorite') : t('player.addFavorite')}
                   priority={6}
                   size={btnSize}
                   active={isFavorite}
@@ -618,7 +676,7 @@ export function PlayerPage(): ReactNode {
 
                 <IconButton
                   focusId="player-info"
-                  label="Bilgi"
+                  label={t('player.info')}
                   priority={5}
                   size={btnSize}
                   active={showInfo}
@@ -634,7 +692,7 @@ export function PlayerPage(): ReactNode {
               <div className="flex items-center gap-3">
                 <IconButton
                   focusId="player-mute"
-                  label={muted ? 'Sesi aç' : 'Sessiz'}
+                  label={muted ? t('player.unmute') : t('player.mute')}
                   priority={6}
                   size={btnSize}
                   onClick={handleToggleMute}
@@ -655,7 +713,7 @@ export function PlayerPage(): ReactNode {
                       value={muted ? 0 : volume}
                       onChange={(e) => handleVolumeSlider(Number(e.target.value))}
                       className="h-2 w-full cursor-pointer accent-accent-400"
-                      aria-label="Ses seviyesi"
+                      aria-label={t('player.volume')}
                     />
                     <span className="w-8 text-right text-sm tabular-nums text-slate-300">
                       {muted ? 0 : volume}
@@ -665,7 +723,7 @@ export function PlayerPage(): ReactNode {
 
                 <IconButton
                   focusId="player-vol-down"
-                  label="Ses azalt"
+                  label={t('player.volumeDown')}
                   priority={4}
                   size={btnSize}
                   onClick={() => handleVolumeDelta(-5)}
@@ -677,7 +735,7 @@ export function PlayerPage(): ReactNode {
                 </span>
                 <IconButton
                   focusId="player-vol-up"
-                  label="Ses artır"
+                  label={t('player.volumeUp')}
                   priority={4}
                   size={btnSize}
                   onClick={() => handleVolumeDelta(5)}
@@ -687,7 +745,7 @@ export function PlayerPage(): ReactNode {
 
                 <IconButton
                   focusId="player-aspect"
-                  label={`Görüntü: ${FIT_LABELS[objectFit]}`}
+                  label={`${t('player.aspect')}: ${t(FIT_KEYS[objectFit])}`}
                   priority={5}
                   size={btnSize}
                   onClick={handleCycleFit}
@@ -698,7 +756,7 @@ export function PlayerPage(): ReactNode {
                 {!TV_UI && (
                   <IconButton
                     focusId="player-fullscreen"
-                    label={isFullscreen ? 'Tam ekrandan çık' : 'Tam ekran'}
+                    label={isFullscreen ? t('player.fullscreenExit') : t('player.fullscreen')}
                     priority={5}
                     size={btnSize}
                     active={isFullscreen}
@@ -714,7 +772,7 @@ export function PlayerPage(): ReactNode {
 
                 <IconButton
                   focusId="player-toggle-overlay"
-                  label="Kontrolleri gizle"
+                  label={t('player.hideControls')}
                   priority={3}
                   size={btnSize}
                   onClick={() => setShowOverlay(false)}
@@ -725,8 +783,8 @@ export function PlayerPage(): ReactNode {
             </div>
 
             <p className="mt-3 text-center text-sm text-slate-400">
-              {FIT_LABELS[objectFit]}
-              {contentKind === 'live' ? ' · Canlı · ↑/↓ kanal' : ' · ←/→ 30 sn · Space oynat'}
+              {t(FIT_KEYS[objectFit])}
+              {contentKind === 'live' ? t('player.hintLive') : t('player.hintVod')}
             </p>
           </footer>
         </div>
@@ -736,7 +794,7 @@ export function PlayerPage(): ReactNode {
         <button
           type="button"
           className="absolute inset-0 z-20 cursor-default bg-transparent"
-          aria-label="Kontrolleri göster"
+          aria-label={t('player.showControls')}
           onClick={bumpOverlay}
         />
       )}
@@ -788,14 +846,15 @@ function IconButton({
 }
 
 function StatusBadge({ state }: { state: string }): ReactNode {
-  const labels: Record<string, string> = {
-    playing: 'Oynatılıyor',
-    loading: 'Yükleniyor',
-    buffering: 'Arabelleğe alınıyor',
-    reconnecting: 'Yeniden bağlanıyor',
-    error: 'Hata',
-    paused: 'Duraklatıldı',
-    idle: 'Beklemede',
+  const t = useT();
+  const labelKeys: Record<string, MessageKey> = {
+    playing: 'player.state.playing',
+    loading: 'player.state.loading',
+    buffering: 'player.state.buffering',
+    reconnecting: 'player.state.reconnecting',
+    error: 'player.state.error',
+    paused: 'player.state.paused',
+    idle: 'player.state.idle',
   };
 
   const colors: Record<string, string> = {
@@ -812,7 +871,7 @@ function StatusBadge({ state }: { state: string }): ReactNode {
     <span
       className={`shrink-0 rounded-full px-6 py-2 text-lg font-medium ${colors[state] ?? colors.idle}`}
     >
-      {labels[state] ?? state}
+      {labelKeys[state] ? t(labelKeys[state]) : state}
     </span>
   );
 }

@@ -11,4 +11,4 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
-declare const __STREAMBOX_SIMULATOR__: boolean;
+declare const __IVPLAYER_SIMULATOR__: boolean;

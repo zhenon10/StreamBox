@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Launch StreamBox TV on a registered LG webOS device / emulator.
+ * Launch IvPlayer on a registered LG webOS device / emulator.
  *
  * Usage:
  *   node scripts/launch-webos.mjs [--device <name>]
@@ -22,7 +22,7 @@ function getArg(flag) {
 
 const device = getArg('--device') ?? process.env.WEBOS_DEVICE ?? 'emulator';
 
-let appId = 'com.streambox.iptv';
+let appId = 'com.ivplayer.iptv';
 try {
   const appinfo = JSON.parse(
     readFileSync(join(root, 'webos', 'appinfo.json'), 'utf8'),

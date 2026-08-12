@@ -142,6 +142,10 @@ export class LocalStorageRecentPlaylistsRepository implements IRecentPlaylistsRe
     await this.storage.setItem(STORAGE_KEYS.recentPlaylists, JSON.stringify(updated));
   }
 
+  async clear(): Promise<void> {
+    await this.storage.setItem(STORAGE_KEYS.recentPlaylists, JSON.stringify([]));
+  }
+
   private async getList(): Promise<RecentPlaylistEntry[]> {
     const raw = await this.storage.getItem(STORAGE_KEYS.recentPlaylists);
     if (!raw) return [];
