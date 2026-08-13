@@ -664,7 +664,7 @@ button.btn:disabled {
 }
 
 .steps {
-  margin: 0 0 0.5rem;
+  margin: 0 auto 0.5rem;
 }
 
 .step-list {
