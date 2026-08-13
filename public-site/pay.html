@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Güvenli ödeme — IvPlayer</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/logo.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Sora:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body class="page-doc">
+    <div class="bg-glow" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="logo-lockup" href="/">
+        <img src="/logo.png" width="40" height="40" alt="" />
+        <span class="wordmark"><span class="iv">IV</span>PLAYER</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/activation.html">Lisans Satın Al</a>
+        <a href="/privacy.html">Gizlilik</a>
+      </nav>
+    </header>
+    <main class="doc">
+      <p class="eyebrow">Ödeme</p>
+      <h1>Güvenli ödeme</h1>
+      <p class="meta">
+        Kart bilgileri IvPlayer sunucusunda tutulmaz. Form ödeme sağlayıcısı tarafından sunulur.
+      </p>
+      <p id="msg" class="section-lead">Ödeme formu yükleniyor…</p>
+      <iframe id="frame" class="pay-frame" title="Ödeme formu" style="display:none"></iframe>
+    </main>
+    <footer class="site-footer">
+      <p>
+        <a href="/privacy.html">Gizlilik</a>
+        ·
+        <a href="/support.html">Destek</a>
+        ·
+        <a href="/activation.html">Lisans Satın Al</a>
+      </p>
+      <p class="copy">© 2026 IvPlayer</p>
+    </footer>
+    <script>
+      (function () {
+        function apiBase() {
+          var h = location.hostname;
+          if (h === 'localhost' || h === '127.0.0.1') return 'http://127.0.0.1:8787';
+          return 'https://license.ivplayer.tr';
+        }
+        var orderNo = new URLSearchParams(location.search).get('orderNo') || '';
+        var msg = document.getElementById('msg');
+        var frame = document.getElementById('frame');
+        if (!orderNo) {
+          msg.textContent = 'Sipariş bulunamadı.';
+          return;
+        }
+        var stored = '';
+        try { stored = sessionStorage.getItem('ivp_pay_' + orderNo) || ''; } catch (e) {}
+        function show(url) {
+          if (!url || url.indexOf('https://www.paytr.com/odeme/guvenli/') !== 0) {
+            msg.textContent = 'Ödeme adresi geçersiz.';
+            return;
+          }
+          frame.src = url;
+          frame.style.display = 'block';
+          msg.textContent = '3D Secure adımlarını tamamlayın. Sonuç, ödeme sağlayıcısı tarafından sunucumuza bildirilir.';
+        }
+        if (stored) {
+          show(stored);
+          return;
+        }
+        fetch(apiBase() + '/v1/orders/' + encodeURIComponent(orderNo) + '/pay-session')
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (!j || !j.ok) {
+              msg.textContent = 'Ödeme sayfası şu anda oluşturulamadı.';
+              return;
+            }
+            show(j.paymentUrl);
+          })
+          .catch(function () {
+            msg.textContent = 'Bağlantı sırasında bir sorun oluştu. Lütfen tekrar deneyin.';
+          });
+      })();
+    </script>
+  </body>
+</html>

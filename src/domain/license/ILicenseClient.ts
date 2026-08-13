@@ -10,6 +10,7 @@ export interface ILicenseClient {
     deviceId: string,
     deviceLabel?: string,
   ): Promise<ActivateResult>;
+  claim(deviceId: string, deviceLabel?: string): Promise<ActivateResult>;
   validate(token: string, deviceId: string): Promise<ValidateResult>;
   deactivate(token: string, deviceId: string): Promise<DeactivateResult>;
 }

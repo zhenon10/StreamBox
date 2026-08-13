@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Aktivasyon — IvPlayer</title>
+    <title>IvPlayer Lisans Satın Al</title>
     <meta
       name="description"
-      content="IvPlayer aktivasyon: kodunuzu girin, cihazınızı bağlayın. Kanal paketi satılmaz."
+      content="IvPlayer LG webOS medya oynatıcı lisansınızı cihaz kodunuzla satın alın."
     />
     <link rel="icon" href="/logo.png" type="image/png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -27,120 +27,91 @@
       </a>
       <nav class="site-nav">
         <a href="/">Ana sayfa</a>
-        <a class="is-active" href="/activation.html">Aktivasyon</a>
+        <a class="is-active" href="/activation.html">Lisans Satın Al</a>
         <a href="/privacy.html">Gizlilik</a>
         <a href="/support.html">Destek</a>
-        <a class="nav-cta" href="https://ivplayer.tr/app/">Web oynatıcı</a>
       </nav>
     </header>
 
     <main class="doc">
-      <p class="eyebrow">Lisans</p>
-      <h1>Aktivasyon</h1>
+      <p class="eyebrow">IvPlayer LG webOS Medya Oynatıcı Lisansı</p>
+      <h1>IvPlayer Lisansınızı Satın Alın</h1>
       <p class="meta">
-        IvPlayer bir <strong>medya oynatıcı</strong>dır — kanal paketi satılmaz. Yıllık veya ömür
-        boyu oyuncu lisansı alın, cihazınıza aktive edin, <strong>kendi M3U listenizi</strong>
-        ekleyin. Lisans cihaz koduna kilitlenir (HotPlayer satış modeli).
+        LG TV’nizde IvPlayer’ı açın ve ekranda gösterilen 12 haneli cihaz kodunu girin. IvPlayer
+        herhangi bir TV kanalı, yayın listesi veya medya içeriği sağlamaz.
       </p>
 
-      <section class="steps">
-        <h2 class="section-title">Nasıl çalışır?</h2>
-        <ol class="step-list">
-          <li>
-            <span class="step-num">1</span>
-            <div>
-              <h3>Lisans alın</h3>
-              <p>Yıllık veya ömür boyu oyuncu lisansı satın alın / kod isteyin.</p>
-            </div>
-          </li>
-          <li>
-            <span class="step-num">2</span>
-            <div>
-              <h3>Cihazda aktive edin</h3>
-              <p>
-                <a href="https://ivplayer.tr/app/">Web</a> veya TV uygulamasında kodu girin. Cihaz
-                kodunuz satış ve destek için görünür.
-              </p>
-            </div>
-          </li>
-          <li>
-            <span class="step-num">3</span>
-            <div>
-              <h3>Kendi listenizi ekleyin</h3>
-              <p>
-                Playlist URL veya M3U dosyası ile kendi yayın listenizi yükleyin. IvPlayer kanal
-                satmaz.
-              </p>
-            </div>
-          </li>
-        </ol>
+      <section class="doc-block" id="order">
+        <form class="order-form" id="checkoutForm">
+          <label for="device">Cihaz kodunuz</label>
+          <input
+            id="device"
+            class="device-input"
+            placeholder="XXXX-XXXX-XXXX"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            inputmode="text"
+            maxlength="14"
+            required
+          />
+
+          <label>Lisans seçin</label>
+          <div class="plan-pick" id="planPick"></div>
+
+          <label for="email">E-posta</label>
+          <input
+            id="email"
+            class="checkout-email"
+            type="email"
+            autocomplete="email"
+            required
+            placeholder="ornek@eposta.com"
+          />
+          <p class="section-lead">Ödeme sağlayıcısı bu alanı ister. IvPlayer kart bilgisi tutmaz.</p>
+
+          <div class="checkout-summary" id="summary">
+            <p style="margin:0 0 0.6rem;color:var(--muted)">Özet</p>
+            <dl>
+              <dt>Ürün</dt>
+              <dd id="sumProduct">IvPlayer LG webOS Medya Oynatıcı Lisansı</dd>
+              <dt>Plan</dt>
+              <dd id="sumPlan">—</dd>
+              <dt>Cihaz</dt>
+              <dd id="sumDevice">—</dd>
+              <dt>Tutar</dt>
+              <dd id="sumAmount">—</dd>
+            </dl>
+          </div>
+
+          <p class="checkout-error" id="checkoutError" role="alert"></p>
+          <div class="hero-cta checkout-cta">
+            <button class="btn btn-primary" type="submit" id="payBtn" disabled>Güvenli ödemeye geç</button>
+          </div>
+          <p class="section-lead" id="payHint"></p>
+        </form>
       </section>
 
       <section class="pricing" id="plans">
-        <h2 class="section-title">Lisans planları</h2>
+        <h2 class="section-title">Lisans seçenekleri</h2>
         <p class="section-lead">
-          Oyuncu lisansı: <strong>1 yıl</strong> veya <strong>ömür boyu</strong>. İçerik / kanal
-          paketi dahil değildir — kendi M3U listenizi siz eklersiniz.
+          Fiyatlar sunucudan gelir. Ömür boyu lisans, IvPlayer yazılımı içindir; yayın veya kanal
+          erişimi anlamına gelmez.
         </p>
-        <div class="plan-grid plan-grid-2">
-          <article class="plan-card">
-            <p class="plan-badge">Yıllık</p>
-            <h3>1 yıl</h3>
-            <p class="plan-price">Yıllık lisans</p>
-            <p class="plan-note">12 aylık IvPlayer erişimi · tek seferlik yenileme</p>
-            <ul>
-              <li>Oyuncu lisansı (kanal yok)</li>
-              <li>Kendi M3U URL / dosyanızı ekleyin</li>
-              <li>Cihaz koduna kilit (limit genelde 1)</li>
-              <li>Web + desteklenen TV istemcileri</li>
-            </ul>
-            <a
-              class="btn btn-primary"
-              href="mailto:destek@ivplayer.tr?subject=IvPlayer%201%20y%C4%B1l%20lisans"
-              >Satın al / kod iste</a
-            >
-            <a class="btn btn-ghost" href="https://ivplayer.tr/app/">Kodum var — aktive et</a>
-          </article>
-          <article class="plan-card plan-featured">
-            <p class="plan-badge">En avantajlı</p>
-            <h3>Ömür boyu</h3>
-            <p class="plan-price">Tek seferlik</p>
-            <p class="plan-note">Süresiz IvPlayer lisansı · bir kez ödeyin</p>
-            <ul>
-              <li>Tek seferlik oyuncu lisansı</li>
-              <li>Yenileme ücreti yok</li>
-              <li>Kendi listenizi ekleyin</li>
-              <li>Ayarlar’dan lisans kaldırılabilir</li>
-            </ul>
-            <a
-              class="btn btn-primary"
-              href="mailto:destek@ivplayer.tr?subject=IvPlayer%20%C3%B6m%C3%BCr%20boyu%20lisans"
-              >Satın al / kod iste</a
-            >
-            <a class="btn btn-ghost" href="https://ivplayer.tr/app/">Kodum var — aktive et</a>
-          </article>
-        </div>
+        <div class="plan-grid plan-grid-2" id="planCards"></div>
         <p class="plan-footnote">
-          Fiyat ve ödeme kanalı netleşince bu kartlara eklenecek. Şimdilik lisans için
-          <a href="mailto:destek@ivplayer.tr">destek@ivplayer.tr</a> adresine yazın. Kodunuz hazırsa
-          uygulamada doğrudan aktive edin.
+          Lisans, ödeme sağlayıcısının sunucumuza doğrulanmış bildirimi sonrası cihaz kodunuza
+          bağlanır. Tarayıcı dönüşü tek başına ödeme kanıtı değildir.
         </p>
-      </section>
-
-      <section class="reseller">
-        <h2>Bayi / sağlayıcı mısınız?</h2>
-        <p>
-          Müşterilerinize IvPlayer aktivasyon kodu tanımlamak için iletişime geçin. İndirimli paket
-          ve toplu kod yönetimi konuşulabilir.
-        </p>
-        <a class="btn btn-primary" href="mailto:destek@ivplayer.tr?subject=IvPlayer%20bayi">Bayilik sor</a>
       </section>
 
       <section class="doc-block">
         <h2>Önemli</h2>
         <ul class="doc-list">
-          <li>IvPlayer IPTV aboneliği veya kanal paketi satmaz.</li>
-          <li>Uygulama adına abonelik satan siteler IvPlayer ile ilişkili değildir.</li>
+          <li>
+            IvPlayer bir medya oynatıcıdır. TV kanalı, yayın listesi veya medya içeriği sağlamaz.
+          </li>
+          <li>Kart bilgileri IvPlayer tarafından saklanmaz.</li>
           <li>Resmi adres: <a href="https://ivplayer.tr/">ivplayer.tr</a></li>
         </ul>
       </section>
@@ -152,15 +123,209 @@
         <span class="wordmark"><span class="iv">IV</span>PLAYER</span>
       </a>
       <p>
-        <a href="/activation.html">Aktivasyon</a>
-        ·
         <a href="/privacy.html">Gizlilik</a>
         ·
         <a href="/support.html">Destek</a>
         ·
-        <a href="mailto:destek@ivplayer.tr">destek@ivplayer.tr</a>
+        <a href="/activation.html">Lisans Satın Al</a>
       </p>
-      <p class="copy">© 2026 IvPlayer. Tüm hakları saklıdır.</p>
+      <p class="copy">© 2026 IvPlayer</p>
     </footer>
+    <script>
+      (function () {
+        function apiBase() {
+          var h = location.hostname;
+          if (h === 'localhost' || h === '127.0.0.1') return 'http://127.0.0.1:8787';
+          return 'https://license.ivplayer.tr';
+        }
+
+        function formatCode(raw) {
+          var c = String(raw || '')
+            .replace(/[^a-zA-Z0-9]/g, '')
+            .toUpperCase()
+            .slice(0, 12);
+          var parts = [];
+          if (c.length > 0) parts.push(c.slice(0, 4));
+          if (c.length > 4) parts.push(c.slice(4, 8));
+          if (c.length > 8) parts.push(c.slice(8, 12));
+          return parts.join('-');
+        }
+
+        function codeOk() {
+          return formatCode(device.value).replace(/-/g, '').length === 12;
+        }
+
+        var device = document.getElementById('device');
+        var email = document.getElementById('email');
+        var err = document.getElementById('checkoutError');
+        var payBtn = document.getElementById('payBtn');
+        var hint = document.getElementById('payHint');
+        var selected = 'ONE_YEAR';
+        var catalog = null;
+        var paymentReady = false;
+
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('device')) device.value = formatCode(params.get('device'));
+
+        function syncPayBtn() {
+          payBtn.disabled = !paymentReady || !codeOk() || !email.value.trim();
+        }
+
+        device.addEventListener('input', function () {
+          var start = device.selectionStart;
+          var before = device.value.length;
+          device.value = formatCode(device.value);
+          var diff = device.value.length - before;
+          device.setSelectionRange(Math.max(0, start + diff), Math.max(0, start + diff));
+          renderSummary();
+          syncPayBtn();
+        });
+        email.addEventListener('input', syncPayBtn);
+
+        function planNote(id) {
+          if (id === 'LIFETIME') {
+            return 'Tek seferlik ödeme ile IvPlayer kullanım lisansı. Yayın veya kanal erişimi anlamına gelmez.';
+          }
+          return '1 yıl boyunca IvPlayer kullanım lisansı.';
+        }
+
+        function renderSummary() {
+          var plan = catalog && catalog.plans.find(function (p) { return p.id === selected; });
+          document.getElementById('sumPlan').textContent = plan ? plan.title : '—';
+          document.getElementById('sumDevice').textContent = device.value || '—';
+          document.getElementById('sumAmount').textContent = plan ? plan.amountLabel : '—';
+          if (plan) document.getElementById('sumProduct').textContent = plan.productName;
+        }
+
+        function renderPlans() {
+          var pick = document.getElementById('planPick');
+          var cards = document.getElementById('planCards');
+          pick.innerHTML = '';
+          cards.innerHTML = '';
+          (catalog.plans || []).forEach(function (p, i) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'plan-pick-btn' + (p.id === selected ? ' is-selected' : '');
+            btn.innerHTML =
+              '<strong>' +
+              (p.id === 'LIFETIME' ? 'Ömür boyu' : '1 yıl') +
+              '</strong><span>' +
+              p.amountLabel +
+              '</span>';
+            btn.addEventListener('click', function () {
+              selected = p.id;
+              renderPlans();
+              renderSummary();
+            });
+            pick.appendChild(btn);
+
+            var art = document.createElement('article');
+            art.className = 'plan-card' + (p.id === 'LIFETIME' ? ' plan-featured' : '');
+            art.innerHTML =
+              '<p class="plan-badge">' +
+              (p.id === 'LIFETIME' ? 'Ömür boyu lisans' : '1 yıllık lisans') +
+              '</p>' +
+              '<h3>' +
+              (p.id === 'LIFETIME' ? 'Ömür boyu' : '1 yıl') +
+              '</h3>' +
+              '<p class="plan-price">' +
+              p.amountLabel +
+              '</p>' +
+              '<p class="plan-note">' +
+              planNote(p.id) +
+              '</p>' +
+              '<button type="button" class="btn btn-primary" data-plan="' +
+              p.id +
+              '">Seç</button>';
+            cards.appendChild(art);
+          });
+          cards.querySelectorAll('[data-plan]').forEach(function (el) {
+            el.addEventListener('click', function () {
+              selected = el.getAttribute('data-plan');
+              renderPlans();
+              renderSummary();
+              document.getElementById('order').scrollIntoView({ behavior: 'smooth' });
+            });
+          });
+          renderSummary();
+        }
+
+        fetch(apiBase() + '/v1/plans')
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            if (!data || !data.ok) throw new Error('plans');
+            catalog = data;
+            paymentReady = Boolean(data.paymentReady);
+            if (!paymentReady) {
+              hint.textContent = 'Online ödeme altyapısı şu anda hazırlanıyor.';
+            }
+            renderPlans();
+            syncPayBtn();
+          })
+          .catch(function () {
+            err.textContent = 'Bağlantı sırasında bir sorun oluştu. Lütfen tekrar deneyin.';
+            payBtn.disabled = true;
+          });
+
+        document.getElementById('checkoutForm').addEventListener('submit', function (e) {
+          e.preventDefault();
+          err.textContent = '';
+          if (!codeOk()) {
+            err.textContent = 'Geçerli bir 12 haneli cihaz kodu girin.';
+            return;
+          }
+          if (!paymentReady) {
+            err.textContent = 'Online ödeme sistemi şu anda kullanıma hazır değil.';
+            return;
+          }
+          payBtn.disabled = true;
+          fetch(apiBase() + '/v1/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              deviceCode: formatCode(device.value),
+              plan: selected,
+              email: email.value.trim(),
+            }),
+          })
+            .then(function (r) {
+              return r.json().then(function (j) {
+                return { ok: r.ok, j: j };
+              });
+            })
+            .then(function (res) {
+              var j = res.j || {};
+              if (!j.ok) {
+                var map = {
+                  invalid_device_code: 'Geçerli bir 12 haneli cihaz kodu girin.',
+                  invalid_plan: 'Sipariş oluşturulamadı. Lütfen tekrar deneyin.',
+                  email_required: 'Geçerli bir e-posta girin.',
+                  already_licensed: 'Bu cihaz için zaten aktif bir lisans bulunuyor.',
+                  provider_not_configured: 'Online ödeme sistemi şu anda kullanıma hazır değil.',
+                  rate_limited: 'Çok fazla deneme. Lütfen sonra tekrar deneyin.',
+                };
+                err.textContent = map[j.error] || 'Sipariş oluşturulamadı. Lütfen tekrar deneyin.';
+                syncPayBtn();
+                return;
+              }
+              if (!j.paymentUrl) {
+                err.textContent = 'Ödeme sayfası şu anda oluşturulamadı.';
+                syncPayBtn();
+                return;
+              }
+              try {
+                sessionStorage.setItem('ivp_pay_' + j.orderNo, j.paymentUrl);
+              } catch (e2) {}
+              location.href = '/pay.html?orderNo=' + encodeURIComponent(j.orderNo);
+            })
+            .catch(function () {
+              err.textContent = 'Bağlantı sırasında bir sorun oluştu. Lütfen tekrar deneyin.';
+              syncPayBtn();
+            });
+        });
+      })();
+    </script>
   </body>
 </html>

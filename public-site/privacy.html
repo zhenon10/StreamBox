@@ -27,7 +27,7 @@
       </a>
       <nav class="site-nav">
         <a href="/">Ana sayfa</a>
-        <a href="/activation.html">Aktivasyon</a>
+        <a href="/activation.html">Lisans Satın Al</a>
         <a class="is-active" href="/privacy.html">Gizlilik</a>
         <a href="/support.html">Destek</a>
         <a class="nav-cta" href="https://ivplayer.tr/app/">Web oynatıcı</a>
@@ -38,7 +38,7 @@
       <p class="eyebrow">Yasal</p>
       <h1>Gizlilik politikası</h1>
       <p class="meta">
-        Son güncelleme: 12 Ağustos 2026 · Bu sayfa:
+        Son güncelleme: 13 Ağustos 2026 · Bu sayfa:
         <a href="https://ivplayer.tr/privacy.html">https://ivplayer.tr/privacy.html</a>
         · İletişim:
         <a href="mailto:destek@ivplayer.tr">destek@ivplayer.tr</a>
@@ -47,7 +47,7 @@
       <section class="doc-block">
         <h2>1. Kim sunuyor</h2>
         <p>
-          IvPlayer, bireysel bir geliştirici tarafından sunulan çok platformlu bir medya / IPTV
+          IvPlayer, bireysel bir geliştirici tarafından sunulan çok platformlu bir medya
           oynatıcıdır. Bu politika; istemci uygulamalarının (web, Smart TV ve ileride eklenecek
           diğer platformlar) ve lisans doğrulama / oynatma yardımcı hizmetinin
           (<a href="https://license.ivplayer.tr">https://license.ivplayer.tr</a>) veri işleme
@@ -58,26 +58,28 @@
       <section class="doc-block">
         <h2>2. Uygulama ne yapar</h2>
       <p>
-        IvPlayer, aktivasyon kodu ile <strong>oyuncu lisansını</strong> açan bir medya
-        oynatıcıdır. Kod,
-        <a href="https://license.ivplayer.tr">https://license.ivplayer.tr</a> üzerinden HTTPS ile
-        doğrulanır. Doğrulama sonrası kullanıcı kendi yayın listesini (M3U URL veya dosya) ekler;
-        uygulama kanal paketi satmaz.
+        IvPlayer mağazada ücretsiz sunulur. Kullanıcı uygulamada görünen 12 haneli cihaz kodu
+        (XXXX-XXXX-XXXX) ile
+        <a href="https://ivplayer.tr/activation.html">ivplayer.tr</a> üzerinden 1 yıllık veya ömür
+        boyu <strong>IvPlayer yazılım lisansı</strong> satın alır. Lisans o cihaz kimliğine
+        bağlanır (MAC adresi webOS’ta verilmediği için cihaz kodu kullanılır). Doğrulama sonrası
+        kullanıcı kendi yayın listesini (M3U URL veya dosya) ekler. IvPlayer herhangi bir TV
+        kanalı, yayın listesi veya medya içeriği sağlamaz.
       </p>
       <p>
         Güncel istemciler arasında tarayıcı tabanlı web oynatıcı
         (<a href="https://ivplayer.tr/app/">https://ivplayer.tr/app/</a>) ve LG webOS TV uygulaması
-        bulunur. Lisans planları tipik olarak yıllık veya ömür boyudur ve cihaz kimliğine
-        bağlanır.
+        bulunur. Lisans planları tipik olarak 1 yıllık veya ömür boyudur ve cihaz kimliğine
+        bağlanır. Ömür boyu ifade IvPlayer yazılım lisansı içindir; üçüncü taraf içerik erişimini
+        kapsamaz.
       </p>
         <p>
-          Mağaza / ücretsiz dağıtım sürümlerinde abonelik veya aktivasyon, ilgili mağazanın uygulama
-          içi satın alma sistemi üzerinden yapılmak zorunda değildir; erişim aktivasyon kodu ile
-          sağlanır. LG webOS sürümü Content Store üzerinden ücretsiz sunulmak üzere tasarlanmıştır.
+          LG webOS sürümü Content Store üzerinden ücretsiz sunulmak üzere tasarlanmıştır. Yazılım
+          lisansı mağaza içi satın alma yerine bu sitedeki ödeme akışı ile alınır.
         </p>
         <p>
-          IvPlayer yayın içeriğinin sahibi veya yayın sağlayıcısı değildir; yetkilendirilmiş bir kod
-          ile erişilen yayın kaynaklarını oynatan bir medya oynatıcıdır.
+          IvPlayer yayın içeriğinin sahibi veya yayın sağlayıcısı değildir; kullanıcının kendi
+          yetkili olduğu M3U / playlist kaynaklarını oynatan bir medya oynatıcıdır.
         </p>
       </section>
 
@@ -99,11 +101,14 @@
           gönderilebilir; yönetim panelinde aktivasyonları ayırt etmek içindir.
         </p>
 
-        <h3>3.3 Aktivasyon kodu ve lisans jetonu</h3>
+        <h3>3.3 Cihaz kodu ve lisans jetonu</h3>
         <p>
-          Aktivasyon kodu yalnızca aktivasyon isteğinde sunucuya gönderilir. Başarılı aktivasyondan
-          sonra bir lisans jetonu ve özet bilgiler (plan adı, bitiş zamanı, playlist adresi) cihazda
-          / tarayıcıda saklanır. Jeton doğrulama ve iptal isteklerinde sunucuya gönderilir.
+          Satın alma sırasında 12 haneli cihaz kodu sipariş kaydıyla sunucuya gönderilir. Uygulama
+          açılışında cihaz kimliği ile lisans sorgulanır (claim). Başarılı bağlama sonrası bir
+          lisans jetonu ve özet bilgiler (plan adı, bitiş zamanı, varsa playlist adresi) cihazda /
+          tarayıcıda saklanır. Jeton doğrulama ve iptal isteklerinde sunucuya gönderilir. Yönetici
+          paneli ayrıca tanımlı lisans kodları tutabilir; bu kodlar kullanıcı satış ekranının
+          parçası değildir.
         </p>
 
         <h3>3.4 Playlist / kanal verileri (yerel)</h3>
@@ -123,6 +128,15 @@
           Uygulama kodu bu URL’yi dosyaya yazmaz. Ters proxy (nginx) üzerinde
           <code>/v1/stream-proxy</code> için erişim günlüğü kapatılarak sorgu dizesinin (kimlik
           bilgisi içerebilecek <code>?url=</code>) access log’a yazılması engellenir.
+        </p>
+
+        <h3>3.6 Sipariş ve ödeme kayıtları</h3>
+        <p>
+          Web sitesinden lisans satın alındığında sunucuda sipariş numarası, cihaz kodu, seçilen
+          plan, tutar, para birimi, ödeme durumu, ödeme referansı, lisans durumu ve zaman damgaları
+          tutulabilir. Ödeme sağlayıcısının zorunlu tuttuğu e-posta adresi siparişle birlikte
+          saklanabilir. Kart bilgileri IvPlayer tarafından saklanmaz; kart verileri ödeme
+          sağlayıcısı tarafından işlenir.
         </p>
       </section>
 
@@ -146,14 +160,15 @@
         <h2>5. Lisans sunucusu</h2>
         <p>
           <a href="https://license.ivplayer.tr">https://license.ivplayer.tr</a> IvPlayer’ın kendi
-          lisans ve (gerekirse) stream-proxy hizmetidir. Sunucuda tipik olarak aktivasyon kodu,
-          cihaz kimliği, isteğe bağlı cihaz etiketi, lisans jetonu, aktivasyon zamanı ve yönetici
-          tarafından tanımlanan playlist URL’si tutulur. Playlist URL’si yayın panelinize ait
-          erişim bilgilerini içerebilir.
+          lisans, sipariş ve (gerekirse) stream-proxy hizmetidir. Sunucuda tipik olarak cihaz
+          kimliği / cihaz kodu, isteğe bağlı cihaz etiketi, lisans jetonu, lisans bağlama zamanı,
+          sipariş numarası, plan, ödeme durumu, ödeme referansı, yönetici tanımlı lisans kodları ve
+          isteğe bağlı playlist URL’si tutulabilir. Playlist URL’si yayın panelinize ait erişim
+          bilgilerini içerebilir. Kart bilgileri IvPlayer tarafından saklanmaz.
         </p>
         <p>
-          Yayın / CDN adresleri aboneliğinizin yayın sağlayıcısına ait olabilir; onların gizlilik
-          uygulamaları ayrıca geçerlidir.
+          Yayın / CDN adresleri sizin M3U / playlist kaynağınızın sağlayıcısına ait olabilir;
+          onların gizlilik uygulamaları ayrıca geçerlidir.
         </p>
       </section>
 
@@ -239,9 +254,9 @@
         ·
         <a href="/support.html">Destek</a>
         ·
-        <a href="mailto:destek@ivplayer.tr">destek@ivplayer.tr</a>
+        <a href="/activation.html">Lisans Satın Al</a>
       </p>
-      <p class="copy">© 2026 IvPlayer. Tüm hakları saklıdır.</p>
+      <p class="copy">© 2026 IvPlayer</p>
     </footer>
   </body>
 </html>

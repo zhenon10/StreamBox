@@ -14,8 +14,8 @@ import {
   getStoredLicense,
 } from '@/application/usecases/licenseUseCases';
 import {
+  formatPurchaseCode,
   getOrCreateDeviceId,
-  shortDeviceId,
 } from '@/infrastructure/license/DeviceIdentity';
 import { APP_LOCALES, LOCALE_LABELS, type AppLocale, type MessageKey } from '@/i18n';
 import { useLocale, useT } from '@/i18n/useT';
@@ -372,7 +372,7 @@ function LicensePanel({
         <p>
           {t('settings.deviceId')}:{' '}
           <span className="font-mono text-accent-300">
-            {deviceId ? shortDeviceId(deviceId) : '…'}
+            {deviceId ? formatPurchaseCode(deviceId) : '…'}
           </span>
         </p>
         {license ? (

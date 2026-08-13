@@ -48,6 +48,13 @@ export class HttpLicenseClient implements ILicenseClient {
     });
   }
 
+  async claim(deviceId: string, deviceLabel?: string): Promise<ActivateResult> {
+    return this.postActivate('/v1/claim', {
+      deviceId,
+      ...(deviceLabel ? { deviceLabel } : {}),
+    });
+  }
+
   async validate(token: string, deviceId: string): Promise<ValidateResult> {
     try {
       const response = await this.network.fetch(`${this.baseUrl}/v1/validate`, {

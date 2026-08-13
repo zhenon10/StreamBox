@@ -19,15 +19,11 @@ function store(deps: LicenseUseCaseDeps): LicenseStore {
   return deps.licenseStore ?? new LicenseStore(deps.storage);
 }
 
-export async function activateLicense(
+async function persistActivation(
   deps: LicenseUseCaseDeps,
-  code: string,
-  deviceLabel?: string,
+  deviceId: string,
+  result: Extract<ActivateResult, { ok: true }>,
 ): Promise<ActivateResult> {
-  const deviceId = await getOrCreateDeviceId(deps.storage);
-  const result = await deps.licenseClient.activate(code.trim(), deviceId, deviceLabel);
-  if (!result.ok) return result;
-
   const snapshot: LicenseSnapshot = {
     token: result.token,
     deviceId,
@@ -40,6 +36,28 @@ export async function activateLicense(
   return result;
 }
 
+export async function activateLicense(
+  deps: LicenseUseCaseDeps,
+  code: string,
+  deviceLabel?: string,
+): Promise<ActivateResult> {
+  const deviceId = await getOrCreateDeviceId(deps.storage);
+  const result = await deps.licenseClient.activate(code.trim(), deviceId, deviceLabel);
+  if (!result.ok) return result;
+  return persistActivation(deps, deviceId, result);
+}
+
+/** Site satışından sonra: kod girmeden cihaz ID ile lisansı çek. */
+export async function claimDeviceLicense(
+  deps: LicenseUseCaseDeps,
+  deviceLabel?: string,
+): Promise<ActivateResult> {
+  const deviceId = await getOrCreateDeviceId(deps.storage);
+  const result = await deps.licenseClient.claim(deviceId, deviceLabel);
+  if (!result.ok) return result;
+  return persistActivation(deps, deviceId, result);
+}
+
 export async function validateStoredLicense(
   deps: LicenseUseCaseDeps,
 ): Promise<
@@ -49,7 +67,15 @@ export async function validateStoredLicense(
   const licenseStore = store(deps);
   const snapshot = await licenseStore.get();
   if (!snapshot) {
-    return { ok: false, error: 'not_found', snapshot: null };
+    const claimed = await claimDeviceLicense(deps);
+    if (!claimed.ok) {
+      return { ok: false, error: claimed.error, snapshot: null };
+    }
+    const saved = await licenseStore.get();
+    if (!saved) {
+      return { ok: false, error: 'not_found', snapshot: null };
+    }
+    return { ok: true, snapshot: saved };
   }
 
   const result: ValidateResult = await deps.licenseClient.validate(

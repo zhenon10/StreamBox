@@ -13,5 +13,7 @@
       "expiresAt": 1609459200000
     }
   },
-  "activations": {}
+  "activations": {},
+  "deviceLicenses": {},
+  "orders": []
 }

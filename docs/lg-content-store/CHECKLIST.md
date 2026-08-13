@@ -12,7 +12,7 @@ Use this together with the official **App Self Checklist** form from [LG Seller 
 - [ ] `appinfo.json`: id, title, version, type=web, icon, splashBackground, appDescription ≤60
 - [ ] Version bumped if re-uploading (same version cannot be uploaded twice)
 - [ ] `VITE_LICENSE_API_URL` is public **HTTPS** (not localhost / LAN / YOUR-LICENSE-HOST)
-- [ ] `VITE_STORE_BUILD=true` (no Open URL / Open File in store build)
+- [ ] `VITE_STORE_BUILD=true` (Open URL / File only **after** device-bound license)
 
 ## Remote / navigation
 
@@ -30,10 +30,10 @@ Use this together with the official **App Self Checklist** form from [LG Seller 
 
 ## License / content flow
 
-- [ ] Home shows **Aktive et** (no free M3U URL/file entry in store build)
+- [ ] Home shows **device code** + buy URL; Check license (no free M3U before purchase)
 - [ ] Without license: no recent playlists, favorites/history, or channel list visible
-- [ ] Invalid code shows clear Turkish error
-- [ ] Valid code loads playlist and opens Channels
+- [ ] After website binds the device code, Check license unlocks Open URL
+- [ ] Invalid / missing license shows clear Turkish error
 - [ ] Network failure to license API shows friendly error (not crash)
 - [ ] Settings shows device ID, plan, expiry; “Lisansı kaldır” clears playlist access
 

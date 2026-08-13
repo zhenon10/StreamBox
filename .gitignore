@@ -20,6 +20,14 @@ webos-build/
 
 # Runtime license DB (may contain customer playlist credentials)
 license-server/data/licenses.json
+license-server/data/licenses.json.backup*
+license-server/data/*.backup
+
+# Server-side payment merchant secrets
+license-server/.env
+license-server/.env.*
+!license-server/.env.example
+!license-server/deploy/ivplayer-license.env.example
 
 # Editor directories and files
 .vscode/*

@@ -13,20 +13,22 @@ import {
 } from '@/application/usecases/playlistUseCases';
 import {
   activateLicense,
+  claimDeviceLicense,
   validateStoredLicense,
 } from '@/application/usecases/licenseUseCases';
 import { playlistGroupsNeedRepair } from '@/domain/content/contentSection';
 import type { LicenseSnapshot } from '@/domain/license/types';
 import {
+  formatPurchaseCode,
   getOrCreateDeviceId,
-  shortDeviceId,
 } from '@/infrastructure/license/DeviceIdentity';
 import { playlistRequiresLicense } from '@/domain/license/storeBuild';
 import { licenseErrorKey, type MessageKey } from '@/i18n';
 import { useLocale, useT } from '@/i18n/useT';
 
-/** LG Content Store build: activation-only (no free-form M3U URL/file). */
+/** Store / production: playlist URL only after a device-bound player license. */
 const STORE_BUILD = playlistRequiresLicense();
+const BUY_SITE = 'https://ivplayer.tr/activation.html';
 
 function formatPlaylistLoadError(error: unknown): string {
   if (error instanceof Error) {
@@ -40,6 +42,13 @@ function formatPlaylistLoadError(error: unknown): string {
 }
 
 const ALL_MENU_ITEMS = [
+  {
+    id: 'check',
+    titleKey: 'menu.checkLicense' as const satisfies MessageKey,
+    subtitleKey: 'menu.checkLicenseSub' as const satisfies MessageKey,
+    icon: '↻',
+    action: 'check' as const,
+  },
   {
     id: 'activate',
     titleKey: 'menu.activate' as const satisfies MessageKey,
@@ -93,13 +102,16 @@ function menuItemsForLicense(licensed: boolean): readonly MenuItem[] {
   if (!STORE_BUILD) {
     return ALL_MENU_ITEMS;
   }
-  // HotPlayer-style store: license unlocks the player; user adds their own M3U.
+  // Free store app: URL/file only after website purchase is bound to this device.
   if (!licensed) {
     return ALL_MENU_ITEMS.filter(
-      (item) => item.action === 'activate' || (item.action === 'navigate' && item.path === '/settings'),
+      (item) =>
+        item.action === 'check' ||
+        item.action === 'activate' ||
+        (item.action === 'navigate' && item.path === '/settings'),
     );
   }
-  return ALL_MENU_ITEMS;
+  return ALL_MENU_ITEMS.filter((item) => item.action !== 'activate');
 }
 
 function buildHomeGraph(
@@ -123,13 +135,21 @@ function buildHomeGraph(
       group: 'home-license',
       isDefault: false,
       priority: 15,
-      neighbors: { down: 'menu-activate' },
+      neighbors: { down: 'menu-check' },
     });
   }
 
+  nodes.push({
+    id: 'device-card',
+    group: 'home-device',
+    isDefault: !hasLicenseShortcut,
+    priority: 16,
+    neighbors: { down: hasLicenseShortcut ? 'license-open' : 'menu-check' },
+  });
+
   return {
     screenId: 'home',
-    defaultFocusId: hasLicenseShortcut ? 'license-open' : 'menu-activate',
+    defaultFocusId: hasLicenseShortcut ? 'license-open' : 'device-card',
     nodes,
   };
 }
@@ -157,7 +177,8 @@ export function HomePage(): ReactNode {
   const [activateCode, setActivateCode] = useState('');
   const [activateError, setActivateError] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
-  const [deviceShort, setDeviceShort] = useState('');
+  const [checkingLicense, setCheckingLicense] = useState(false);
+  const [deviceCode, setDeviceCode] = useState('');
 
   const {
     isLoading,
@@ -225,7 +246,7 @@ export function HomePage(): ReactNode {
   useEffect(() => {
     void (async () => {
       const deviceId = await getOrCreateDeviceId(platform.storage);
-      setDeviceShort(shortDeviceId(deviceId));
+      setDeviceCode(formatPurchaseCode(deviceId));
 
       const validated = await validateStoredLicense(licenseDeps());
       if (validated.ok) {
@@ -287,6 +308,44 @@ export function HomePage(): ReactNode {
     setUrlInput('');
   }, [loadPlaylistUrl, urlInput]);
 
+  const handleCheckLicense = useCallback(async () => {
+    if (checkingLicense) return;
+    setCheckingLicense(true);
+    setLoadError(null);
+    try {
+      const label = platform.platform.getDeviceInfo().model;
+      const result = await claimDeviceLicense(licenseDeps(), label);
+      if (!result.ok) {
+        setLoadError(t(licenseErrorKey(result.error === 'not_found' ? 'not_found' : result.error)));
+        return;
+      }
+      const snapshot: LicenseSnapshot = {
+        token: result.token,
+        deviceId: await getOrCreateDeviceId(platform.storage),
+        expiresAt: result.expiresAt,
+        playlistUrl: result.playlistUrl,
+        planName: result.planName,
+        activatedAt: Date.now(),
+      };
+      setLicenseSnapshot(snapshot);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : t(licenseErrorKey('unknown')));
+    } finally {
+      setCheckingLicense(false);
+    }
+  }, [checkingLicense, licenseDeps, setLoadError, t]);
+
+  const handleBuyOnSite = useCallback(() => {
+    const url = deviceCode
+      ? `${BUY_SITE}?device=${encodeURIComponent(deviceCode)}`
+      : BUY_SITE;
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      /* TV may block window.open — URL is shown on screen */
+    }
+  }, [deviceCode]);
+
   const handleActivateSubmit = useCallback(async () => {
     if (!activateCode.trim() || activating) return;
     setActivating(true);
@@ -331,7 +390,9 @@ export function HomePage(): ReactNode {
   }, [licenseSnapshot, loadPlaylistUrl]);
 
   const handleMenuAction = (action: MenuItem): void => {
-    if (action.action === 'activate') {
+    if (action.action === 'check') {
+      void handleCheckLicense();
+    } else if (action.action === 'activate') {
       setActivateError(null);
       services.resolve(TOKENS.navigationGraph).pushModal('activate-dialog');
       setActivateDialogOpen(true);
@@ -400,13 +461,38 @@ export function HomePage(): ReactNode {
         </div>
         <div className="text-right text-lg text-slate-500">
           <div>{platform.platform.getDeviceInfo().platform.toUpperCase()}</div>
-          {deviceShort && (
-            <div className="mt-1 font-mono text-sm text-slate-600">
-              {t('home.device')} {deviceShort}
+          {deviceCode && (
+            <div className="mt-1 font-mono text-sm text-slate-500">
+              {t('home.device')} {deviceCode}
             </div>
           )}
         </div>
       </header>
+
+      {licenseChecked && STORE_BUILD && (
+        <section className="mx-16 mb-6">
+          <Focusable
+            focusId="device-card"
+            focusGroup="home-device"
+            focusPriority={16}
+            className="block w-full"
+            onClick={handleBuyOnSite}
+          >
+            <div className="rounded-2xl border border-white/10 bg-surface-900/80 px-8 py-6 [.focused_&]:border-accent-400">
+              <p className="text-sm font-medium uppercase tracking-wider text-accent-300">
+                {t('home.device')}
+              </p>
+              <p className="mt-2 font-mono text-4xl font-bold tracking-[0.18em] text-white">
+                {deviceCode || '…'}
+              </p>
+              <p className="mt-3 max-w-3xl text-base text-slate-400">{t('home.deviceHint')}</p>
+              <p className="mt-2 text-lg text-accent-300">
+                {t('home.buyOnSite')}: {t('home.buyUrl')}
+              </p>
+            </div>
+          </Focusable>
+        </section>
+      )}
 
       {isLoading && (
         <div className="mx-16 mb-6 rounded-xl bg-surface-800 px-6 py-4">
@@ -570,7 +656,7 @@ export function HomePage(): ReactNode {
             <h3 className="mb-2 text-3xl font-semibold text-white">{t('activate.title')}</h3>
             <p className="mb-6 text-lg text-slate-400">
               {t('activate.hint')}{' '}
-              <span className="font-mono text-accent-300">{deviceShort || '…'}</span>
+              <span className="font-mono text-accent-300">{deviceCode || '…'}</span>
             </p>
             <input
               type="text"

@@ -84,3 +84,15 @@ export function shortDeviceId(deviceId: string): string {
   if (clean.length <= 8) return clean.toUpperCase();
   return clean.slice(-8).toUpperCase();
 }
+
+/** 12-char purchase code shown on TV / web (site satış bu kodla bağlanır). */
+export function purchaseDeviceCode(deviceId: string): string {
+  const clean = deviceId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  if (!clean) return '000000000000';
+  return (clean.length >= 12 ? clean.slice(-12) : clean.padStart(12, '0')).slice(-12);
+}
+
+export function formatPurchaseCode(deviceId: string): string {
+  const code = purchaseDeviceCode(deviceId);
+  return `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8, 12)}`;
+}

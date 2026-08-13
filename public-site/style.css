@@ -255,6 +255,14 @@ main > section {
   color: var(--text);
 }
 
+.btn:disabled,
+button.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .btn-ghost:hover {
   border-color: rgba(255, 255, 255, 0.28);
   background: rgba(255, 255, 255, 0.04);
@@ -461,6 +469,130 @@ main > section {
 
 .plan-card .btn + .btn {
   margin-top: 0.35rem;
+}
+
+.order-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.order-form label {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.device-input {
+  width: min(100%, 22rem);
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.checkout-email {
+  width: min(100%, 22rem);
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.plan-pick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  max-width: 36rem;
+}
+
+@media (max-width: 560px) {
+  .plan-pick {
+    grid-template-columns: 1fr;
+  }
+}
+
+.plan-pick-btn {
+  text-align: left;
+  cursor: pointer;
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+}
+
+.plan-pick-btn.is-selected {
+  border-color: rgba(229, 45, 39, 0.55);
+  box-shadow: 0 0 0 1px rgba(123, 47, 247, 0.25);
+}
+
+.plan-pick-btn strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+}
+
+.plan-pick-btn span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.checkout-summary {
+  margin: 0.5rem 0 0;
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.checkout-summary dl {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+}
+
+.checkout-summary dt {
+  color: var(--muted);
+}
+
+.checkout-summary dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.checkout-error {
+  color: #fecaca;
+  min-height: 1.4rem;
+  margin: 0.35rem 0 0;
+}
+
+.pay-frame {
+  width: 100%;
+  min-height: 720px;
+  border: 0;
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.status-card {
+  padding: 1.5rem 1.25rem;
+  border-radius: 1.15rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.status-card h2 {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display);
 }
 
 .plan-card {
@@ -781,4 +913,23 @@ main > section {
   .hero-logo {
     width: min(64vw, 220px);
   }
+
+  .hero-cta {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .hero-cta .btn,
+  .checkout-cta .btn {
+    width: 100%;
+  }
+
+  .device-input,
+  .checkout-email {
+    width: 100%;
+  }
+}
+
+.checkout-cta {
+  justify-content: flex-start;
 }

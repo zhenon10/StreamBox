@@ -1,10 +1,13 @@
 /**
  * Minimal IvPlayer license API + admin panel — Node built-in http only.
- * Public:  POST /v1/activate | /v1/validate | /v1/deactivate · GET /v1/health
+ * Public:  POST /v1/activate | /v1/validate | /v1/deactivate | /v1/claim · GET /v1/health
  *          GET /v1/stream-proxy?url=…  (CORS tunnel for TV MSE playback)
+ *          GET /v1/plans · POST /v1/orders · GET /v1/orders/:orderNo
+ *          POST /v1/payments/paytr/callback  (PayTR Bildirim URL, plain OK)
  * Admin:   GET /admin (login gate) · POST /admin/login · POST /admin/logout
  *          GET|POST /v1/admin/codes · DELETE /v1/admin/codes/:code
  *          DELETE /v1/admin/activations/:token
+ *          GET /v1/admin/orders
  */
 import http from 'node:http';
 import https from 'node:https';
@@ -15,6 +18,8 @@ import dns from 'node:dns/promises';
 import { fileURLToPath } from 'node:url';
 import { URL as NodeURL } from 'node:url';
 import net from 'node:net';
+import { handlePaymentHttp, getPaymentProvider } from './payments/http.mjs';
+import { adminOrderView, ensureOrders } from './payments/orderService.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_PATH = path.join(__dirname, 'data', 'licenses.json');
@@ -39,17 +44,42 @@ function ensureDataFile() {
 
 ensureDataFile();
 
+const ORDERS_BACKUP = path.join(__dirname, 'data', 'licenses.json.backup.orders-v1');
+if (fs.existsSync(DATA_PATH) && !fs.existsSync(ORDERS_BACKUP)) {
+  fs.copyFileSync(DATA_PATH, ORDERS_BACKUP);
+  console.log('Backed up licenses.json → data/licenses.json.backup.orders-v1');
+}
+
 /** @typedef {{ planName: string, playlistUrl: string, maxDevices: number, expiresAt: number }} CodeRecord */
 /** @typedef {{ code: string, deviceId: string, deviceLabel?: string, token: string, activatedAt: number }} Activation */
-/** @typedef {{ codes: Record<string, CodeRecord>, activations: Record<string, Activation> }} LicenseDb */
+/** @typedef {{ planName: string, playlistUrl: string, expiresAt: number, fullDeviceId?: string, createdAt: number }} DeviceLicense */
+/** @typedef {{ codes: Record<string, CodeRecord>, activations: Record<string, Activation>, deviceLicenses?: Record<string, DeviceLicense>, orders?: object[] }} LicenseDb */
 
 function loadDb() {
   /** @type {LicenseDb} */
   const raw = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
+  if (!raw.codes) raw.codes = {};
+  if (!raw.activations) raw.activations = {};
+  if (!raw.deviceLicenses) raw.deviceLicenses = {};
+  ensureOrders(raw);
   if (DEMO_PLAYLIST_OVERRIDE && raw.codes['DEMO-2026']) {
     raw.codes['DEMO-2026'].playlistUrl = DEMO_PLAYLIST_OVERRIDE;
   }
   return raw;
+}
+
+function purchaseCodeFromDeviceId(deviceId) {
+  const clean = String(deviceId ?? '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase();
+  if (!clean) return '';
+  return (clean.length >= 12 ? clean.slice(-12) : clean.padStart(12, '0')).slice(-12);
+}
+
+function normalizePurchaseCode(raw) {
+  return String(raw ?? '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase();
 }
 
 /** @param {LicenseDb} db */
@@ -399,7 +429,21 @@ function listAdminCodes(db) {
     };
   });
   codes.sort((a, b) => a.code.localeCompare(b.code));
-  return { ok: true, codes };
+  const deviceLicenses = Object.entries(db.deviceLicenses || {}).map(([deviceCode, rec]) => ({
+    deviceCode,
+    planName: rec.planName,
+    playlistUrl: rec.playlistUrl || '',
+    expiresAt: rec.expiresAt,
+    fullDeviceId: rec.fullDeviceId || null,
+    createdAt: rec.createdAt,
+    claimed: Boolean(rec.fullDeviceId),
+  }));
+  deviceLicenses.sort((a, b) => a.deviceCode.localeCompare(b.deviceCode));
+  const orders = ensureOrders(db)
+    .orders.slice()
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map(adminOrderView);
+  return { ok: true, codes, deviceLicenses, orders };
 }
 
 /**
@@ -450,6 +494,127 @@ function revokeActivation(db, token) {
   delete db.activations[t];
   saveDb(db);
   return { status: 200, body: { ok: true } };
+}
+
+/**
+ * Site satış: TV’deki 12 haneli cihaz koduna yıllık / ömür boyu lisans bağla.
+ * @param {LicenseDb} db
+ * @param {Record<string, unknown>} input
+ */
+function upsertDeviceLicense(db, input) {
+  const deviceCode = normalizePurchaseCode(input.deviceCode ?? input.deviceId);
+  if (deviceCode.length < 8) {
+    return { status: 400, body: { ok: false, error: 'invalid_device' } };
+  }
+  const key = deviceCode.length >= 12 ? deviceCode.slice(-12) : deviceCode;
+  const planName = String(input.planName ?? '').trim() || '1 Yıl';
+  const playlistUrl = String(input.playlistUrl ?? '').trim();
+  let expiresAt = Number(input.expiresAt);
+  if (!Number.isFinite(expiresAt) || expiresAt <= 0) {
+    return { status: 400, body: { ok: false, error: 'invalid_expiry' } };
+  }
+
+  const prev = db.deviceLicenses[key];
+  db.deviceLicenses[key] = {
+    planName,
+    playlistUrl,
+    expiresAt,
+    fullDeviceId: prev?.fullDeviceId,
+    createdAt: prev?.createdAt ?? Date.now(),
+  };
+  saveDb(db);
+  return { status: 200, body: { ok: true, deviceCode: key, ...db.deviceLicenses[key] } };
+}
+
+/** @param {LicenseDb} db @param {string} deviceCode */
+function deleteDeviceLicense(db, deviceCode) {
+  const key = normalizePurchaseCode(deviceCode);
+  const sliced = key.length >= 12 ? key.slice(-12) : key;
+  if (!db.deviceLicenses[sliced] && !db.deviceLicenses[key]) {
+    return { status: 404, body: { ok: false, error: 'not_found' } };
+  }
+  delete db.deviceLicenses[sliced];
+  delete db.deviceLicenses[key];
+  saveDb(db);
+  return { status: 200, body: { ok: true } };
+}
+
+function successFromRecord(token, record) {
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      token,
+      expiresAt: record.expiresAt,
+      playlistUrl: record.playlistUrl || '',
+      planName: record.planName,
+    },
+  };
+}
+
+/**
+ * Uygulama açılışında cihaz ID ile lisansı çek (kod girmeden).
+ * @param {LicenseDb} db
+ * @param {{ deviceId: string, deviceLabel?: string }} input
+ */
+function claim(db, input) {
+  const deviceId = String(input.deviceId ?? '').trim();
+  if (!deviceId) {
+    return { status: 400, body: { ok: false, error: 'not_found' } };
+  }
+
+  const existingAct = Object.values(db.activations).find((a) => a.deviceId === deviceId);
+  if (existingAct) {
+    const record = db.codes[existingAct.code];
+    if (record && Date.now() <= record.expiresAt) {
+      return successFromRecord(existingAct.token, record);
+    }
+    if (record && Date.now() > record.expiresAt) {
+      return { status: 403, body: { ok: false, error: 'expired' } };
+    }
+  }
+
+  const pcode = purchaseCodeFromDeviceId(deviceId);
+  const rec = db.deviceLicenses[pcode] || db.deviceLicenses[deviceId];
+  if (!rec) {
+    return { status: 404, body: { ok: false, error: 'not_found' } };
+  }
+  if (Date.now() > rec.expiresAt) {
+    return { status: 403, body: { ok: false, error: 'expired' } };
+  }
+  if (rec.fullDeviceId && rec.fullDeviceId !== deviceId) {
+    return { status: 403, body: { ok: false, error: 'device_mismatch' } };
+  }
+
+  rec.fullDeviceId = deviceId;
+  const syntheticCode = `DEV-${pcode}`;
+  if (!db.codes[syntheticCode]) {
+    db.codes[syntheticCode] = {
+      planName: rec.planName,
+      playlistUrl: rec.playlistUrl || '',
+      maxDevices: 1,
+      expiresAt: rec.expiresAt,
+    };
+  } else {
+    db.codes[syntheticCode].planName = rec.planName;
+    db.codes[syntheticCode].playlistUrl = rec.playlistUrl || '';
+    db.codes[syntheticCode].expiresAt = rec.expiresAt;
+  }
+
+  let activation = Object.values(db.activations).find((a) => a.deviceId === deviceId);
+  if (!activation) {
+    const token = newToken();
+    activation = {
+      code: syntheticCode,
+      deviceId,
+      deviceLabel: input.deviceLabel ? String(input.deviceLabel).slice(0, 120) : undefined,
+      token,
+      activatedAt: Date.now(),
+    };
+    db.activations[token] = activation;
+  }
+  saveDb(db);
+  return successFromRecord(activation.token, db.codes[syntheticCode]);
 }
 
 /** Proxy remote IPTV media with CORS so webOS MSE (hls.js / mpegts.js) can play. */
@@ -749,7 +914,23 @@ const server = http.createServer(async (req, res) => {
   if (tryServeWebApp(req, res, pathname)) return;
 
   if (req.method === 'GET' && pathname === '/v1/health') {
-    json(res, 200, { ok: true });
+    json(res, 200, {
+      ok: true,
+      paymentProvider: getPaymentProvider().id,
+      paymentConfigured: getPaymentProvider().isConfigured(),
+    });
+    return;
+  }
+
+  if (
+    await handlePaymentHttp(req, res, url, {
+      json,
+      loadDb,
+      saveDb,
+      upsertDeviceLicense,
+      requireAdmin,
+    })
+  ) {
     return;
   }
 
@@ -789,6 +970,28 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'POST' && pathname === '/v1/admin/device-licenses') {
+    if (!requireAdmin(req, res)) return;
+    let body;
+    try {
+      body = await readBody(req);
+    } catch {
+      json(res, 400, { ok: false, error: 'invalid_json' });
+      return;
+    }
+    const result = upsertDeviceLicense(loadDb(), body);
+    json(res, result.status, result.body);
+    return;
+  }
+
+  if (req.method === 'DELETE' && pathname.startsWith('/v1/admin/device-licenses/')) {
+    if (!requireAdmin(req, res)) return;
+    const deviceCode = decodeURIComponent(pathname.slice('/v1/admin/device-licenses/'.length));
+    const result = deleteDeviceLicense(loadDb(), deviceCode);
+    json(res, result.status, result.body);
+    return;
+  }
+
   if (req.method !== 'POST') {
     json(res, 404, { ok: false, error: 'not_found' });
     return;
@@ -807,6 +1010,8 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === '/v1/activate') {
     result = activate(db, body);
+  } else if (pathname === '/v1/claim') {
+    result = claim(db, body);
   } else if (pathname === '/v1/validate') {
     result = validate(db, body);
   } else if (pathname === '/v1/deactivate') {
@@ -825,4 +1030,5 @@ server.listen(PORT, BIND, () => {
   console.log(`Web player:  http://127.0.0.1:${PORT}/app/`);
   console.log(`Stream proxy: http://127.0.0.1:${PORT}/v1/stream-proxy?url=…`);
   console.log(`Demo code: DEMO-2026  (override playlist: LICENSE_DEMO_PLAYLIST_URL)`);
+  console.log(`PayTR callback: POST /v1/payments/paytr/callback  configured=${getPaymentProvider().isConfigured()}`);
 });

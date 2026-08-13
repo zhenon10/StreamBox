@@ -7,9 +7,11 @@
 
 ## Purpose
 
-IvPlayer is a licensed IPTV player for LG webOS. Users activate with a subscription code; the app loads their playlist and plays live TV / VOD categories.
+IvPlayer is a **free** media player for LG webOS (no channels included). Users buy a 1-year or lifetime **player license** on https://ivplayer.tr using the on-screen **device code**, then load their own M3U URL.
 
-Store build does **not** allow arbitrary M3U URL or local file open.
+Until licensed: Home shows device code, Check license, Settings. No playlist URL/file.
+
+After license: Open URL / Open File are available. Content is user-supplied.
 
 ## Preconditions
 
@@ -21,11 +23,11 @@ Store build does **not** allow arbitrary M3U URL or local file open.
 
 1. Launch IvPlayer from Launcher.
 2. Splash appears, then **Home**.
-3. Focus **Aktive et** → OK.
-4. Enter activation code → **Aktive et**.
-5. Expect: loading progress → **Channels** (Canlı TV / Filmler / Diziler as available).
+3. Home shows a 12-character **device code** and the buy URL (ivplayer.tr).
+4. After the seller binds that code on the website, focus **Lisansı kontrol et** → OK.
+5. Expect: license active → user can **Open playlist URL** and load their own M3U.
 
-**Fail if:** crash, infinite spinner, blank screen, or URL/file pickers appear.
+**Fail if:** crash, infinite spinner, blank screen, or URL/file pickers appear **before** license.
 
 ## Scenario B — Browse & play
 

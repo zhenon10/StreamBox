@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sipariş durumu — IvPlayer</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/logo.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Sora:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body class="page-doc">
+    <div class="bg-glow" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="logo-lockup" href="/">
+        <img src="/logo.png" width="40" height="40" alt="" />
+        <span class="wordmark"><span class="iv">IV</span>PLAYER</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/activation.html">Lisans Satın Al</a>
+        <a href="/privacy.html">Gizlilik</a>
+      </nav>
+    </header>
+    <main class="doc">
+      <p class="eyebrow">Sipariş</p>
+      <h1>Ödeme durumu</h1>
+      <div class="status-card">
+        <h2 id="title">Ödeme sonucunuz doğrulanıyor.</h2>
+        <p id="detail" class="meta">Lütfen bekleyin. Tarayıcı yönlendirmesi tek başına ödeme kanıtı değildir.</p>
+        <p id="meta" class="section-lead"></p>
+      </div>
+      <p style="margin-top:1.25rem">
+        <a class="btn btn-ghost" href="/activation.html">Lisans sayfasına dön</a>
+      </p>
+    </main>
+    <footer class="site-footer">
+      <p>
+        <a href="/privacy.html">Gizlilik</a>
+        ·
+        <a href="/support.html">Destek</a>
+        ·
+        <a href="/activation.html">Lisans Satın Al</a>
+      </p>
+      <p class="copy">© 2026 IvPlayer</p>
+    </footer>
+    <script>
+      (function () {
+        function apiBase() {
+          var h = location.hostname;
+          if (h === 'localhost' || h === '127.0.0.1') return 'http://127.0.0.1:8787';
+          return 'https://license.ivplayer.tr';
+        }
+        var orderNo = new URLSearchParams(location.search).get('orderNo') || '';
+        var title = document.getElementById('title');
+        var detail = document.getElementById('detail');
+        var meta = document.getElementById('meta');
+        if (!orderNo) {
+          title.textContent = 'Sipariş bulunamadı';
+          detail.textContent = '';
+          return;
+        }
+        var tries = 0;
+        function paint(j) {
+          meta.textContent = 'Sipariş ' + j.orderNo + ' · ' + (j.planTitle || j.plan) + ' · ' + (j.amountLabel || '') + ' · Cihaz ' + (j.deviceCode || '');
+          if (j.paymentStatus === 'PAID' && j.licenseStatus === 'ACTIVE') {
+            title.textContent = 'Ödeme başarılı';
+            detail.textContent = 'Lisansınız bu cihaz koduna bağlandı. Uygulamada “Lisansı kontrol et” deyin, ardından kendi M3U kaynağınızı açın.';
+            return true;
+          }
+          if (j.paymentStatus === 'PAID' && j.licenseStatus === 'REVIEW_REQUIRED') {
+            title.textContent = 'Ödeme alındı';
+            detail.textContent = 'Lisans incelemede (cihazda zaten aktif lisans olabilir). Destek için sipariş numaranızı yazın.';
+            return true;
+          }
+          if (j.paymentStatus === 'FAILED' || j.paymentStatus === 'CANCELLED') {
+            title.textContent = 'Ödeme alınamadı';
+            detail.textContent = 'Lisans aktifleştirilmedi. Tekrar denemek için aktivasyon sayfasına dönün.';
+            return true;
+          }
+          title.textContent = 'Ödeme sonucunuz doğrulanıyor.';
+          detail.textContent = 'Ödeme sağlayıcısının sunucu bildirimi bekleniyor. Bu sayfa otomatik güncellenir.';
+          return false;
+        }
+        function tick() {
+          fetch(apiBase() + '/v1/orders/' + encodeURIComponent(orderNo))
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+              if (!j || !j.ok) {
+                title.textContent = 'Sipariş bulunamadı';
+                return;
+              }
+              var done = paint(j);
+              tries += 1;
+              if (!done && tries < 40) setTimeout(tick, 2500);
+            })
+            .catch(function () {
+              tries += 1;
+              if (tries < 40) setTimeout(tick, 3000);
+            });
+        }
+        tick();
+      })();
+    </script>
+  </body>
+</html>

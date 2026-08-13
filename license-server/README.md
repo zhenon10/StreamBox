@@ -26,9 +26,21 @@ Open `/admin` → login with the admin key (session cookie, 12 hours). The panel
 | Method | Path | Body |
 |--------|------|------|
 | GET | `/v1/health` | — |
+| GET | `/v1/plans` | server prices (no secrets) |
+| POST | `/v1/orders` | `{ deviceCode, plan, email }` — amount is **not** taken from client |
+| GET | `/v1/orders/:orderNo` | public status (PENDING / PAID / FAILED) |
+| POST | `/v1/payments/paytr/callback` | PayTR form POST; respond `OK` |
 | POST | `/v1/activate` | `{ code, deviceId, deviceLabel? }` |
 | POST | `/v1/validate` | `{ token, deviceId }` |
 | POST | `/v1/deactivate` | `{ token, deviceId }` |
+
+PayTR Bildirim URL (merchant panel): `https://license.ivplayer.tr/v1/payments/paytr/callback`
+
+License is activated only after a verified PayTR callback (HMAC), not after the browser return URL.
+
+```bash
+node --test license-server/payments/payments.test.mjs
+```
 
 ## Admin API
 

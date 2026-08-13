@@ -200,6 +200,50 @@
     <div id="flash" class="msg"></div>
 
     <section class="card">
+      <h2>Cihaz kodu ile lisans bağla (satış)</h2>
+      <p style="color:var(--muted);margin:0 0 1rem;font-size:0.92rem">
+        Müşteri uygulamada görünen 12 haneli kodu (XXXX-XXXX-XXXX) gönderir. Siz planı bağlarsınız;
+        uygulama “Lisansı kontrol et” ile kod girmeden açılır. MAC kullanılmaz (webOS vermez).
+      </p>
+      <form id="deviceForm">
+        <div class="row">
+          <div>
+            <label for="devicePlanPreset">Plan</label>
+            <select id="devicePlanPreset">
+              <option value="year">1 yıl</option>
+              <option value="lifetime">Ömür boyu</option>
+            </select>
+          </div>
+          <div>
+            <label for="deviceCode">Cihaz kodu</label>
+            <input id="deviceCode" required placeholder="A1B2-C3D4-E5F6" class="mono" />
+          </div>
+          <div>
+            <label for="devicePlanName">Plan adı</label>
+            <input id="devicePlanName" required value="1 Yıl" />
+          </div>
+          <div>
+            <label for="deviceExpiresAt">Bitiş</label>
+            <input id="deviceExpiresAt" type="date" required />
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary">Cihaza bağla</button>
+        </div>
+      </form>
+      <div id="deviceList" style="margin-top:1rem"></div>
+    </section>
+
+    <section class="card">
+      <h2>Siparişler <span id="orderCount" style="color:var(--muted);font-weight:400"></span></h2>
+      <p style="color:var(--muted);margin:0 0 1rem;font-size:0.92rem">
+        Online ödeme otomatiktir. Manuel “PAID işaretle” yoktur. Lisans yalnızca doğrulanmış
+        PayTR bildirimi sonrası bağlanır. Gerekirse yalnızca ödenmiş siparişte lisans yeniden denenebilir.
+      </p>
+      <div id="orderList"><p class="empty">Yükleniyor…</p></div>
+    </section>
+
+    <section class="card">
       <h2>Yeni / güncelle kod (oyuncu lisansı)</h2>
       <p style="color:var(--muted);margin:0 0 1rem;font-size:0.92rem">
         HotPlayer modeli: kod yalnızca oyuncuyu açar. Playlist URL isteğe bağlıdır — müşteri kendi
@@ -452,10 +496,143 @@
         .replace(/"/g, '&quot;');
     }
 
+    function fmtDeviceCode(code) {
+      const c = String(code || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (c.length < 12) return c;
+      return c.slice(0, 4) + '-' + c.slice(4, 8) + '-' + c.slice(8, 12);
+    }
+
+    function renderDeviceLicenses(items) {
+      const el = $('deviceList');
+      if (!items.length) {
+        el.innerHTML = '<p class="empty" style="margin:0">Henüz cihaz lisansı yok.</p>';
+        return;
+      }
+      el.innerHTML = items.map((d) => `
+        <div class="device-row" style="margin-top:0.5rem">
+          <span class="mono"><strong>${escapeHtml(fmtDeviceCode(d.deviceCode))}</strong>
+            · ${escapeHtml(d.planName)} · ${fmtDate(d.expiresAt)}
+            · ${d.claimed ? 'uygulamada açıldı' : 'bekliyor'}
+            ${statusBadge(d.expiresAt)}
+          </span>
+          <button type="button" class="danger" data-unbind="${escapeHtml(d.deviceCode)}">Kaldır</button>
+        </div>
+      `).join('');
+      el.querySelectorAll('[data-unbind]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const code = btn.getAttribute('data-unbind');
+          if (!confirm(fmtDeviceCode(code) + ' lisansı silinsin mi?')) return;
+          try {
+            await api('/v1/admin/device-licenses/' + encodeURIComponent(code), { method: 'DELETE' });
+            showMsg('Cihaz lisansı silindi', true);
+            await load();
+          } catch (e) {
+            showMsg(e.message, false);
+          }
+        });
+      });
+    }
+
+    function setDeviceDefaultExpiry() {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() + 1);
+      $('deviceExpiresAt').value = d.toISOString().slice(0, 10);
+    }
+    setDeviceDefaultExpiry();
+
+    $('devicePlanPreset').addEventListener('change', () => {
+      if ($('devicePlanPreset').value === 'lifetime') {
+        $('devicePlanName').value = 'Ömür Boyu';
+        $('deviceExpiresAt').value = '2099-12-31';
+      } else {
+        $('devicePlanName').value = '1 Yıl';
+        setDeviceDefaultExpiry();
+      }
+    });
+
+    $('deviceForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const expiresDay = $('deviceExpiresAt').value;
+      const body = {
+        deviceCode: $('deviceCode').value.trim(),
+        planName: $('devicePlanName').value.trim(),
+        expiresAt: new Date(expiresDay + 'T23:59:59').getTime(),
+      };
+      try {
+        await api('/v1/admin/device-licenses', { method: 'POST', body: JSON.stringify(body) });
+        showMsg('Cihaz lisansı bağlandı', true);
+        $('deviceCode').value = '';
+        await load();
+      } catch (err) {
+        showMsg(err.message, false);
+      }
+    });
+
+    function payBadge(status) {
+      const s = String(status || '');
+      if (s === 'PAID') return '<span class="badge ok">PAID</span>';
+      if (s === 'FAILED' || s === 'CANCELLED' || s === 'REFUNDED') return '<span class="badge expired">' + s + '</span>';
+      return '<span class="badge warn">' + s + '</span>';
+    }
+
+    function renderOrders(orders) {
+      const el = $('orderList');
+      $('orderCount').textContent = '(' + orders.length + ')';
+      if (!orders.length) {
+        el.innerHTML = '<p class="empty" style="margin:0">Henüz sipariş yok.</p>';
+        return;
+      }
+      const rows = orders.map((o) => `
+        <tr>
+          <td class="mono"><strong>${escapeHtml(o.orderNo)}</strong></td>
+          <td class="mono">${escapeHtml(o.deviceCode || '')}</td>
+          <td>${escapeHtml(o.planTitle || o.plan || '')}</td>
+          <td>${escapeHtml(o.amountLabel || '')}</td>
+          <td>${payBadge(o.paymentStatus)}<div class="mono" style="color:var(--muted);margin-top:0.25rem">${escapeHtml(o.paymentReference || '—')}</div></td>
+          <td>${payBadge(o.licenseStatus)}${o.callbackStatus ? '<div style="color:var(--muted);font-size:0.75rem;margin-top:0.2rem">cb: ' + escapeHtml(o.callbackStatus) + '</div>' : ''}${o.reviewReason ? '<div style="color:var(--muted);font-size:0.75rem">' + escapeHtml(o.reviewReason) + '</div>' : ''}</td>
+          <td>${fmtDate(o.createdAt)}</td>
+          <td>
+            ${o.paymentStatus === 'PAID' && o.licenseStatus !== 'ACTIVE' ? '<button type="button" data-retry="' + escapeHtml(o.orderNo) + '">Retry license</button>' : ''}
+          </td>
+        </tr>
+      `).join('');
+      el.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Sipariş No</th>
+              <th>Cihaz</th>
+              <th>Plan</th>
+              <th>Tutar</th>
+              <th>Ödeme</th>
+              <th>Lisans</th>
+              <th>Tarih</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+      el.querySelectorAll('[data-retry]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const no = btn.getAttribute('data-retry');
+          try {
+            await api('/v1/admin/orders/' + encodeURIComponent(no) + '/retry-license', { method: 'POST', body: '{}' });
+            showMsg('Lisans yeniden denendi', true);
+            await load();
+          } catch (e) {
+            showMsg(e.message, false);
+          }
+        });
+      });
+    }
+
     async function load() {
       try {
         const data = await api('/v1/admin/codes');
         render(data.codes || []);
+        renderDeviceLicenses(data.deviceLicenses || []);
+        renderOrders(data.orders || []);
         showMsg('Kodlar yüklendi', true);
       } catch (e) {
         if (e.message === 'unauthorized') return;
