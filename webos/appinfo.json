@@ -5,7 +5,7 @@
   "type": "web",
   "main": "index.html",
   "title": "IvPlayer",
-  "appDescription": "IPTV player with license activation for Smart TV",
+  "appDescription": "Smart TV için Premium Medya Oynatıcı",
   "icon": "icon.png",
   "largeIcon": "icon-large.png",
   "splashBackground": "splash.png",

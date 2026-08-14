@@ -59,6 +59,7 @@ Use this together with the official **App Self Checklist** form from [LG Seller 
 ## Store listing (Seller Lounge)
 
 - [ ] Screenshots (FHD) prepared — Home, Activate, Channels, Player
+- [ ] Listing copy: media player + own M3U/M3U8; no IPTV/channel package (see SUPPORT-TEMPLATE.md)
 - [ ] Privacy policy URL live (see PRIVACY-TEMPLATE.md)
 - [ ] Support contact ready (see SUPPORT-TEMPLATE.md)
 - [ ] UX scenario document attached (see UX-SCENARIO.md)

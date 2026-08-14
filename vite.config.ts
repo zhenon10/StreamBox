@@ -184,18 +184,46 @@ function streamProxyPlugin(): Plugin {
   };
 }
 
-function isSimulatorMode(mode: string, command: ConfigEnv['command']): boolean {
+/** Modern ES2022 bundle (not webOS Chromium 79 IIFE). */
+function isModernBundle(mode: string, command: ConfigEnv['command']): boolean {
   return (
     mode === 'simulator' ||
     mode === 'web' ||
+    mode === 'windows' ||
+    mode === 'android' ||
+    mode === 'play' ||
     (command === 'serve' && mode !== 'production')
   );
 }
 
+function nativePackageAliases(mode: string): Record<string, string> {
+  const stubs = path.resolve(rootDir, 'src/platform/native-stubs');
+  const alias: Record<string, string> = {};
+  if (mode !== 'android' && mode !== 'play') {
+    alias['@capacitor/core'] = path.join(stubs, 'capacitor-core.ts');
+    alias['@capacitor/app'] = path.join(stubs, 'capacitor-app.ts');
+    alias['@capacitor/preferences'] = path.join(stubs, 'capacitor-preferences.ts');
+    alias['@capacitor-community/keep-awake'] = path.join(stubs, 'keep-awake.ts');
+  }
+  return alias;
+}
+
 export default defineConfig(({ mode, command }: ConfigEnv): UserConfig => {
-  const simulator = isSimulatorMode(mode, command);
+  const modern = isModernBundle(mode, command);
   const webBuild = mode === 'web';
-  const tvBuild = !simulator;
+  const windowsBuild = mode === 'windows';
+  const androidBuild = mode === 'android' || mode === 'play';
+  const localSimulator =
+    mode === 'simulator' ||
+    (command === 'serve' && mode !== 'production' && !windowsBuild && !androidBuild);
+  const tvBuild = !modern;
+  const fluidViewport = webBuild || windowsBuild || androidBuild;
+
+  let outDir = 'dist';
+  if (webBuild) outDir = 'dist-web';
+  else if (windowsBuild) outDir = 'dist-windows';
+  else if (androidBuild) outDir = 'dist-android';
+  else if (localSimulator) outDir = 'dist-simulator';
 
   return {
     plugins: [
@@ -205,14 +233,26 @@ export default defineConfig(({ mode, command }: ConfigEnv): UserConfig => {
       tailwindcss(),
       playlistProxyPlugin(),
       streamProxyPlugin(),
-      webBuild
+      fluidViewport
         ? {
-            name: 'web-viewport',
+            name: 'fluid-viewport',
             transformIndexHtml(html: string) {
-              return html.replace(
+              const viewport = androidBuild
+                ? 'width=device-width, initial-scale=1.0, viewport-fit=cover'
+                : 'width=device-width, initial-scale=1.0';
+              let next = html.replace(
                 'width=1920, height=1080, initial-scale=1.0',
-                'width=device-width, initial-scale=1.0',
+                viewport,
               );
+              if (webBuild) {
+                next = next
+                  .replace(/<html lang="[^"]*">/i, '<html lang="tr">')
+                  .replace(
+                    '</title>',
+                    '</title>\n    <link rel="canonical" href="https://ivplayer.tr/app/" />\n    <link rel="alternate" hreflang="tr" href="https://ivplayer.tr/app/" />\n    <link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/app/" />',
+                  );
+              }
+              return next;
             },
           }
         : null,
@@ -236,19 +276,20 @@ export default defineConfig(({ mode, command }: ConfigEnv): UserConfig => {
     resolve: {
       alias: {
         '@': path.resolve(rootDir, './src'),
+        ...nativePackageAliases(mode),
       },
     },
     define: {
-      __IVPLAYER_SIMULATOR__: JSON.stringify(simulator),
+      __IVPLAYER_SIMULATOR__: JSON.stringify(localSimulator),
     },
     build: {
-      // webOS TV 6.0 = Chromium 79 (no native ?. / ??). Simulator can stay modern.
-      target: simulator ? 'es2022' : 'chrome79',
+      // webOS TV 6.0 = Chromium 79 (no native ?. / ??). Simulator / desktop / mobile stay modern.
+      target: modern ? 'es2022' : 'chrome79',
       // Critical: Tailwind v4 emits @layer — unsupported before Chrome 99 → unstyled TV UI.
-      cssTarget: simulator ? undefined : 'chrome79',
-      outDir: webBuild ? 'dist-web' : simulator ? 'dist-simulator' : 'dist',
+      cssTarget: modern ? undefined : 'chrome79',
+      outDir,
       // Source maps for local simulator only.
-      sourcemap: simulator && !webBuild,
+      sourcemap: localSimulator && !webBuild,
       cssCodeSplit: !tvBuild,
       modulePreload: tvBuild ? false : undefined,
       rollupOptions: {
@@ -275,13 +316,23 @@ export default defineConfig(({ mode, command }: ConfigEnv): UserConfig => {
     server: {
       port: 5173,
       strictPort: true,
-      open: simulator,
+      open: localSimulator,
       hmr: {
         overlay: true,
       },
       watch: {
         usePolling: false,
-        ignored: ['**/dist/**', '**/dist-simulator/**', '**/webos-build/**', '**/*.ipk'],
+        ignored: [
+          '**/dist/**',
+          '**/dist-simulator/**',
+          '**/dist-windows/**',
+          '**/dist-android/**',
+          '**/webos-build/**',
+          '**/src-tauri/target/**',
+          '**/android/.gradle/**',
+          '**/android/app/build/**',
+          '**/*.ipk',
+        ],
       },
     },
     preview: {

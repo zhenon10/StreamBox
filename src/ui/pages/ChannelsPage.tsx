@@ -22,6 +22,8 @@ import {
 } from '@/domain/content/contentSection';
 import type { Channel } from '@/domain/entities';
 import { useRequireLicense } from '@/ui/hooks/useRequireLicense';
+import { isAndroidUi } from '@/platform/detectPlatform';
+import { AndroidBrowseView } from '@/ui/android/AndroidBrowseView';
 import { useLocale, useT } from '@/i18n/useT';
 import type { MessageKey } from '@/i18n';
 
@@ -66,7 +68,7 @@ export function ChannelsPage(): ReactNode {
   const t = useT();
   const locale = useLocale();
   const numberLocale = locale === 'tr' ? 'tr-TR' : 'en-US';
-  const { checking: licenseChecking, licensed } = useRequireLicense();
+  const { checking: licenseChecking, licensed, snapshot: licenseSnapshot } = useRequireLicense();
   const currentPlaylist = usePlaylistStore((s) => s.currentPlaylist);
   const activeCategory = usePlaylistStore((s) => s.activeCategory);
   const searchQuery = usePlaylistStore((s) => s.searchQuery);
@@ -248,6 +250,20 @@ export function ChannelsPage(): ReactNode {
     catalogLoading,
   ]);
 
+  useEffect(() => {
+    if (!isAndroidUi()) return;
+    if (catalogLoading || searchQuery.trim() || activeCategory) return;
+    const first = sectionCategories[0];
+    if (first) setActiveCategory(first.name);
+  }, [
+    catalogLoading,
+    searchQuery,
+    activeCategory,
+    sectionCategories,
+    setActiveCategory,
+    contentSection,
+  ]);
+
   const showList = !requireFilter || hasFilter;
   const showCategoryPicker = requireFilter && !hasFilter && !catalogLoading;
   const listCount = showList
@@ -292,16 +308,47 @@ export function ChannelsPage(): ReactNode {
   const sectionMeta = SECTION_META[contentSection];
   const sectionHint = t(SECTION_HINT_KEY[contentSection]);
 
+  if (isAndroidUi()) {
+    const expiresLabel = licenseSnapshot
+      ? new Date(licenseSnapshot.expiresAt).toLocaleDateString(numberLocale)
+      : undefined;
+    return (
+      <AndroidBrowseView
+        section={contentSection}
+        sectionLabel={sectionLabel}
+        playlistName={currentPlaylist.name}
+        expiresLabel={expiresLabel}
+        licensed={licensed}
+        categories={sectionCategories}
+        activeCategory={activeCategory}
+        searchQuery={searchQuery}
+        onSearch={setSearchQuery}
+        onSelectCategory={selectCategory}
+        onSection={(next) => {
+          setContentSection(next);
+          setViewIndices(null);
+        }}
+        listCount={listCount}
+        getChannel={getChannel}
+        onSelectChannel={handleChannelSelect}
+        favorites={favorites}
+        showNumbers={showChannelNumbers && contentSection === 'live'}
+        loading={!ready || catalogLoading}
+        indexing={indexing}
+      />
+    );
+  }
+
   return (
-    <div className="flex h-full bg-surface-950">
+    <div className="channels-shell flex h-full min-h-0 min-w-0 overflow-hidden bg-surface-950">
       {/* Left rail */}
-      <aside className="flex w-[380px] shrink-0 flex-col border-r border-surface-700 bg-surface-900">
-        <div className="border-b border-surface-700 px-6 py-5">
+      <aside className="channels-rail flex w-[380px] min-w-0 shrink-0 flex-col overflow-hidden border-r border-surface-700 bg-surface-900">
+        <div className="channels-rail-head border-b border-surface-700 px-6 py-5">
           <p className="text-sm font-medium uppercase tracking-wider text-accent-300">
             IvPlayer
           </p>
           <h2 className="mt-1 truncate text-2xl font-bold text-white">{currentPlaylist.name}</h2>
-          <p className="mt-1 text-base text-slate-400">
+          <p className="channels-playlist-count mt-1 text-base text-slate-400">
             {channelCount.toLocaleString(numberLocale)} {t('channels.content')}
           </p>
           {repairMessage && (
@@ -309,7 +356,7 @@ export function ChannelsPage(): ReactNode {
           )}
         </div>
 
-        <div className="flex flex-col gap-3 border-b border-surface-700 p-4">
+        <div className="channels-sections flex flex-col gap-3 border-b border-surface-700 p-4">
           {availableSections.map((section) => {
             const active = contentSection === section;
             const meta = SECTION_META[section];
@@ -328,24 +375,24 @@ export function ChannelsPage(): ReactNode {
                 }}
               >
                 <div
-                  className={`flex items-center gap-4 rounded-2xl px-4 py-4 transition-colors [.focused_&]:ring-2 [.focused_&]:ring-accent-400 ${
+                  className={`channels-section flex items-center gap-4 rounded-2xl px-4 py-4 transition-colors [.focused_&]:ring-2 [.focused_&]:ring-accent-400 ${
                     active
                       ? 'bg-accent-500 text-white'
                       : 'bg-surface-800 text-slate-200 hover:bg-surface-700'
                   }`}
                 >
                   <span
-                    className={`flex h-12 w-12 items-center justify-center rounded-xl text-xs font-bold tracking-wide ${
+                    className={`channels-section-icon flex h-12 w-12 items-center justify-center rounded-xl text-xs font-bold tracking-wide ${
                       active ? 'bg-white/20 text-white' : 'bg-surface-700 text-accent-300'
                     }`}
                   >
                     {meta.icon}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-xl font-semibold">
+                    <div className="channels-section-title truncate text-xl font-semibold">
                       {t(SECTION_TITLE_KEY[section])}
                     </div>
-                    <div className={`text-sm ${active ? 'text-white/80' : 'text-slate-400'}`}>
+                    <div className={`channels-section-hint text-sm ${active ? 'text-white/80' : 'text-slate-400'}`}>
                       {catalog.counts[section].toLocaleString(numberLocale)} ·{' '}
                       {t(SECTION_HINT_KEY[section])}
                     </div>
@@ -356,7 +403,7 @@ export function ChannelsPage(): ReactNode {
           })}
         </div>
 
-        <div className="border-b border-surface-700 p-4">
+        <div className="channels-search border-b border-surface-700 p-4">
           <label className="mb-2 block text-sm font-medium text-slate-400">
             {t('channels.searchLabel')}
           </label>
@@ -384,7 +431,7 @@ export function ChannelsPage(): ReactNode {
           </div>
         )}
 
-        <div className="scrollbar-hidden flex-1 overflow-y-auto p-4">
+        <div className="channels-cat-list scrollbar-hidden flex-1 overflow-y-auto p-4">
           <p className="mb-3 px-1 text-sm font-semibold uppercase tracking-wider text-slate-500">
             {t('channels.categories')}
           </p>
@@ -403,7 +450,7 @@ export function ChannelsPage(): ReactNode {
                 onClick={() => selectCategory(category.name)}
               >
                 <div
-                  className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3.5 text-lg transition-colors [.focused_&]:bg-accent-500 [.focused_&]:text-white ${
+                  className={`channels-cat flex items-center justify-between gap-3 rounded-xl px-4 py-3.5 text-lg transition-colors [.focused_&]:bg-accent-500 [.focused_&]:text-white ${
                     activeCategory === category.name
                       ? 'bg-accent-500/25 text-accent-300'
                       : 'bg-surface-800/80 text-slate-200 hover:bg-surface-700'
@@ -434,7 +481,7 @@ export function ChannelsPage(): ReactNode {
         <Focusable
           focusId="back-home"
           focusGroup="categories"
-          className="m-4 block"
+          className="channels-home-btn m-4 block"
           onClick={() => navigate('/')}
         >
           <div className="rounded-2xl bg-surface-800 py-4 text-center text-xl font-medium text-slate-200 [.focused_&]:bg-surface-700">
@@ -444,9 +491,9 @@ export function ChannelsPage(): ReactNode {
       </aside>
 
       {/* Main stage */}
-      <main className="relative flex flex-1 flex-col overflow-hidden">
+      <main className="channels-stage relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div
-          className={`pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b ${sectionMeta.accent} opacity-80`}
+          className={`channels-stage-hero pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b ${sectionMeta.accent} opacity-80`}
         />
 
         <header className="relative z-10 flex items-end justify-between gap-6 px-10 pb-4 pt-8">
@@ -468,7 +515,7 @@ export function ChannelsPage(): ReactNode {
             </h1>
           </div>
           {showList && (
-            <span className="shrink-0 rounded-full bg-surface-800 px-5 py-2 text-lg text-slate-300">
+            <span className="channels-count-badge shrink-0 rounded-full bg-surface-800 px-5 py-2 text-lg text-slate-300">
               {listCount.toLocaleString(numberLocale)} {t('channels.results')}
             </span>
           )}
@@ -531,7 +578,7 @@ function CategoryGrid({
   }
 
   return (
-    <div className="scrollbar-hidden h-full overflow-y-auto px-4 pb-4">
+    <div className="cat-grid scrollbar-hidden h-full min-h-0 overflow-y-auto px-4 pb-4">
       <p className="mb-5 text-lg text-slate-300">
         {t('channels.pickCategory').replace('{s}', t(SECTION_TITLE_KEY[section]))}
       </p>
@@ -542,10 +589,10 @@ function CategoryGrid({
             focusId={`cat-grid-${section}-${String(index)}`}
             focusGroup={`category-grid-${section}`}
             focusPriority={Math.max(0, 20 - index)}
-            className="block h-36"
+            className="cat-grid-tile block h-36"
             onClick={() => onSelect(category.name)}
           >
-            <div className="flex h-full flex-col justify-between rounded-2xl border border-surface-600 bg-surface-800 p-5 transition-colors [.focused_&]:border-accent-400 [.focused_&]:bg-accent-500 [.focused_&]:text-white hover:bg-surface-700">
+            <div className="cat-grid-inner flex h-full flex-col justify-between rounded-2xl border border-surface-600 bg-surface-800 p-5 transition-colors [.focused_&]:border-accent-400 [.focused_&]:bg-accent-500 [.focused_&]:text-white hover:bg-surface-700">
               <div className="flex items-start justify-between gap-3">
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface-700 text-sm font-bold text-accent-300 [.focused_&]:bg-white/20 [.focused_&]:text-white">
                   {categoryTileIcon(category.name, section)}

@@ -1,0 +1,21 @@
+# IvPlayer
+
+IvPlayer is a media player for Windows, Android phones, Android TV boxes, the web, and LG webOS TVs at https://ivplayer.tr/
+
+It plays the user's own authorized M3U/M3U8 playlist. IvPlayer does not provide TV channels, IPTV subscriptions, or channel packages.
+
+Current clients (not Play Store / not Microsoft Store):
+- Windows 10/11 64-bit installer: https://ivplayer.tr/downloads/IvPlayer-Setup-1.0.0.exe
+- Android phone + Android TV (same APK, sideload): https://ivplayer.tr/downloads/IvPlayer-1.0.0.apk
+- Web player: https://ivplayer.tr/app/
+- LG TV: LG Content Store
+
+Phone UI is landscape/touch. Android TV uses a 10-foot D-pad UI. After install, the app shows a 12-character device code (XXXX-XXXX-XXXX). Buy a player license (not content) at https://ivplayer.tr/activation.html then tap “Lisansı kontrol et”.
+
+Software licenses (1 year 299 TRY, lifetime 799 TRY) — player license only.
+
+- Site: https://ivplayer.tr/
+- Download: https://ivplayer.tr/download.html
+- Support: https://ivplayer.tr/support.html
+- Contact: destek@ivplayer.tr
+- Seller: Mehmet Burak Fırat, İvrindi / Balıkesir, Türkiye

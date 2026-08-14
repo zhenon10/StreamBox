@@ -188,21 +188,21 @@ export function SettingsPage(): ReactNode {
   const dateLocale = locale === 'tr' ? 'tr-TR' : 'en-US';
 
   return (
-    <div className="flex h-full flex-col bg-surface-950">
-      <header className="flex items-center justify-between border-b border-surface-800 px-16 py-10">
-        <div>
+    <div className="app-scroll settings-page flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-surface-950">
+      <header className="settings-head flex items-center justify-between border-b border-surface-800 px-16 py-10">
+        <div className="min-w-0">
           <h1 className="text-4xl font-bold text-white">{t('settings.title')}</h1>
           <p className="mt-2 text-xl text-slate-400">{t('settings.subtitle')}</p>
         </div>
         <Focusable focusId="settings-back" focusGroup="settings-nav" onClick={() => navigate('/')}>
-          <span className="rounded-xl bg-surface-800 px-8 py-3 text-xl text-white [.focused_&]:bg-surface-700">
+          <span className="settings-back rounded-xl bg-surface-800 px-8 py-3 text-xl text-white [.focused_&]:bg-surface-700">
             ← {t('settings.back')}
           </span>
         </Focusable>
       </header>
 
-      <div className="scrollbar-hidden flex-1 overflow-y-auto px-16 py-8">
-        <div className="mx-auto max-w-4xl space-y-4">
+      <div className="settings-body scrollbar-hidden min-h-0 min-w-0 flex-1 overflow-y-auto px-16 py-8">
+        <div className="settings-stack mx-auto max-w-4xl space-y-4">
           <LanguageSelector
             value={localSettings.locale}
             onChange={handleLocale}
@@ -218,9 +218,9 @@ export function SettingsPage(): ReactNode {
           {SETTING_ITEMS.map((item, index) => (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded-2xl bg-surface-900 px-8 py-6"
+              className="settings-row flex items-center justify-between rounded-2xl bg-surface-900 px-8 py-6"
             >
-              <div className="flex-1 pr-8">
+              <div className="settings-row-label min-w-0 flex-1 pr-8">
                 <h3 className="text-2xl font-semibold text-white">{t(item.labelKey)}</h3>
                 <p className="mt-1 text-lg text-slate-400">{t(item.descriptionKey)}</p>
               </div>
@@ -230,10 +230,11 @@ export function SettingsPage(): ReactNode {
                   focusId={`setting-${item.id}`}
                   focusGroup="settings"
                   focusPriority={10 - index}
+                  className="settings-control shrink-0"
                   onClick={() => handleToggle(item.id)}
                 >
                   <div
-                    className={`h-10 w-20 rounded-full transition-colors [.focused_&]:ring-2 [.focused_&]:ring-accent-500 ${
+                    className={`settings-toggle h-10 w-20 rounded-full transition-colors [.focused_&]:ring-2 [.focused_&]:ring-accent-500 ${
                       localSettings[item.id] ? 'bg-accent-500' : 'bg-surface-700'
                     }`}
                   >
@@ -245,7 +246,7 @@ export function SettingsPage(): ReactNode {
                   </div>
                 </Focusable>
               ) : (
-                <div className="flex items-center gap-4">
+                <div className="settings-control flex shrink-0 items-center gap-4">
                   <Focusable
                     focusId={`setting-${item.id}-dec`}
                     focusGroup="settings"
@@ -256,7 +257,7 @@ export function SettingsPage(): ReactNode {
                       −
                     </span>
                   </Focusable>
-                  <span className="min-w-[80px] text-center text-2xl font-semibold text-accent-300">
+                  <span className="settings-num min-w-[80px] text-center text-2xl font-semibold text-accent-300">
                     {String(localSettings[item.id])}
                   </span>
                   <Focusable
@@ -276,7 +277,7 @@ export function SettingsPage(): ReactNode {
         </div>
       </div>
 
-      <footer className="flex items-center gap-6 border-t border-surface-800 px-16 py-8">
+      <footer className="settings-footer flex items-center gap-6 border-t border-surface-800 px-16 py-8">
         <Focusable
           focusId="settings-save"
           focusGroup="settings-actions"
@@ -325,7 +326,7 @@ function LanguageSelector({
 }): ReactNode {
   const t = useT();
   return (
-    <div className="mb-8 rounded-2xl bg-surface-900 px-8 py-6">
+    <div className="settings-panel mb-8 rounded-2xl bg-surface-900 px-8 py-6">
       <h3 className="mb-4 text-2xl font-semibold text-white">{t('settings.language')}</h3>
       <div className="flex flex-wrap gap-4">
         {APP_LOCALES.map((loc) => (
@@ -366,12 +367,12 @@ function LicensePanel({
 }): ReactNode {
   const t = useT();
   return (
-    <div className="mb-8 rounded-2xl bg-surface-900 px-8 py-6">
+    <div className="settings-panel mb-8 rounded-2xl bg-surface-900 px-8 py-6">
       <h3 className="mb-4 text-2xl font-semibold text-white">{t('settings.license')}</h3>
       <div className="space-y-2 text-lg text-slate-300">
         <p>
           {t('settings.deviceId')}:{' '}
-          <span className="font-mono text-accent-300">
+          <span className="settings-device-id font-mono text-accent-300">
             {deviceId ? formatPurchaseCode(deviceId) : '…'}
           </span>
         </p>
@@ -426,7 +427,7 @@ function ThemeSelector(): ReactNode {
   };
 
   return (
-    <div className="mb-8 rounded-2xl bg-surface-900 px-8 py-6">
+    <div className="settings-panel mb-8 rounded-2xl bg-surface-900 px-8 py-6">
       <h3 className="mb-4 text-2xl font-semibold text-white">{t('settings.theme')}</h3>
       <div className="flex flex-wrap gap-4">
         {themes.map((theme: ThemeDefinition) => (

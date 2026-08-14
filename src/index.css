@@ -62,3 +62,1383 @@ body,
 .scrollbar-hidden::-webkit-scrollbar {
   display: none;
 }
+
+/* Windows desktop shell. webOS / Android TV keep the 10-foot 1920 layout. */
+html[data-platform='windows'] {
+  --page-gutter: 1.5rem;
+}
+
+html[data-platform='windows'] body,
+html[data-platform='windows'] #root {
+  min-height: 100%;
+  min-height: 100dvh;
+}
+
+html[data-platform='windows'] #root {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html[data-platform='windows'] [data-focusable='true'].focused,
+html[data-platform='windows'] [data-focusable='true']:focus-visible {
+  transform: none;
+}
+
+html[data-platform='windows'] .px-16 {
+  padding-left: var(--page-gutter);
+  padding-right: var(--page-gutter);
+}
+
+html[data-platform='windows'] .mx-16 {
+  margin-left: var(--page-gutter);
+  margin-right: var(--page-gutter);
+}
+
+html[data-platform='windows'] .pt-12 {
+  padding-top: 1.25rem;
+}
+
+html[data-platform='windows'] .py-10 {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+html[data-platform='windows'] .app-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+html[data-platform='windows'] .app-scroll > header {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+html[data-platform='windows'] .url-dialog-panel,
+html[data-platform='windows'] .activate-dialog-panel {
+  width: min(720px, calc(100vw - 2rem));
+}
+
+html[data-platform='windows'] .channels-rail {
+  width: min(320px, 34vw);
+}
+
+/*
+ * Phone landscape (Android touch). Named layout tokens — do not fight TV Tailwind
+ * utilities. Android TV uses data-ui=tv and never matches this block.
+ */
+html[data-ui='touch'] {
+  --page-gutter: 0.65rem;
+  --phone-ctrl: 2.35rem;
+  --phone-ctrl-play: 2.65rem;
+  --phone-row: 2.7rem;
+  --phone-rail: min(11.25rem, 30vw);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+html[data-ui='touch'],
+html[data-ui='touch'] body,
+html[data-ui='touch'] #root {
+  width: 100%;
+  height: var(--app-height, 100dvh);
+  min-height: var(--app-height, 100dvh);
+  max-height: var(--app-height, 100dvh);
+  overflow: hidden;
+}
+
+html[data-ui='touch'] [data-focusable='true'] {
+  min-height: 0;
+  will-change: auto;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+html[data-ui='touch'] [data-focusable='true'].focused,
+html[data-ui='touch'] [data-focusable='true']:focus-visible {
+  transform: none;
+  box-shadow: 0 0 0 2px var(--theme-focus-ring, var(--color-accent-500));
+}
+
+html[data-ui='touch'] .app-scroll {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+html[data-ui='touch'] .url-dialog-panel,
+html[data-ui='touch'] .activate-dialog-panel {
+  width: min(640px, calc(100vw - 1.2rem));
+  max-height: calc(100dvh - 1.2rem);
+  overflow: auto;
+  padding: 0.85rem;
+}
+
+html[data-ui='touch'] .url-dialog-panel h3,
+html[data-ui='touch'] .activate-dialog-panel h3 {
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+}
+
+html[data-ui='touch'] .url-dialog-panel input,
+html[data-ui='touch'] .activate-dialog-panel input {
+  padding: 0.55rem 0.7rem;
+  font-size: 1rem;
+  margin-bottom: 0.7rem;
+}
+
+/* Home: two columns that cannot overflow into each other */
+html[data-ui='touch'] .home-page {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  max-height: 100%;
+  grid-template-columns: minmax(0, 34%) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  column-gap: 1.15rem;
+  row-gap: 0.45rem;
+  padding: 0.55rem max(0.85rem, env(safe-area-inset-right, 0px)) 0.55rem
+    max(0.85rem, env(safe-area-inset-left, 0px));
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+html[data-ui='touch'] .home-header {
+  grid-column: 1;
+  grid-row: 1;
+  padding: 0;
+  min-width: 0;
+  align-items: center;
+}
+
+html[data-ui='touch'] .home-header h1 {
+  font-size: 1.35rem;
+  line-height: 1.4rem;
+}
+
+html[data-ui='touch'] .home-tagline,
+html[data-ui='touch'] .home-header .text-lg {
+  display: none;
+}
+
+html[data-ui='touch'] .home-side {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+html[data-ui='touch'] .home-side .mx-16,
+html[data-ui='touch'] .home-device,
+html[data-ui='touch'] .home-license,
+html[data-ui='touch'] .home-license-required {
+  margin: 0;
+}
+
+html[data-ui='touch'] .home-device,
+html[data-ui='touch'] .home-license,
+html[data-ui='touch'] .home-license-required {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+}
+
+html[data-ui='touch'] .home-device > button,
+html[data-ui='touch'] .home-license > button {
+  flex: 1;
+  display: flex;
+  width: 100%;
+  min-height: 0;
+}
+
+html[data-ui='touch'] .home-device > button > div,
+html[data-ui='touch'] .home-license > button > div,
+html[data-ui='touch'] .home-license-required {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0.7rem 0.85rem;
+  box-sizing: border-box;
+}
+
+html[data-ui='touch'] .home-device h1,
+html[data-ui='touch'] .home-device .text-4xl {
+  font-size: clamp(0.82rem, 2.4vw, 1.15rem);
+  letter-spacing: 0.08em;
+  margin-top: 0.25rem;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+html[data-ui='touch'] .home-device-hint,
+html[data-ui='touch'] .home-license .text-base,
+html[data-ui='touch'] .home-license span.rounded-xl {
+  display: none;
+}
+
+html[data-ui='touch'] .home-device .text-lg,
+html[data-ui='touch'] .home-license .text-2xl,
+html[data-ui='touch'] .home-license-required .text-xl {
+  font-size: 1rem;
+  line-height: 1.3rem;
+}
+
+html[data-ui='touch'] .home-license-required .text-base {
+  font-size: 0.78rem;
+  line-height: 1.1rem;
+  overflow-wrap: anywhere;
+}
+
+html[data-ui='touch'] .home-main {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  border-left: 1px solid rgba(148, 163, 184, 0.18);
+  padding-left: 0.9rem;
+}
+
+html[data-ui='touch'] .home-actions {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+html[data-ui='touch'] .home-recent {
+  flex: 0 0 auto;
+  max-height: 4.75rem;
+  padding: 0.35rem 0 0;
+  overflow: hidden;
+}
+
+html[data-ui='touch'] .home-actions h2,
+html[data-ui='touch'] .home-recent h2 {
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+}
+
+html[data-ui='touch'] .home-actions .grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 1fr;
+  gap: 0.55rem;
+  height: 100%;
+  align-content: stretch;
+}
+
+html[data-ui='touch'] .home-action-card {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  align-self: stretch;
+}
+
+html[data-ui='touch'] .home-action-card > div {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  padding: 0.65rem 0.8rem;
+}
+
+html[data-ui='touch'] .home-action-card .text-4xl {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+html[data-ui='touch'] .home-action-card .mt-4 {
+  margin-top: 0.2rem;
+}
+
+html[data-ui='touch'] .home-action-card .text-2xl {
+  font-size: 0.95rem;
+  line-height: 1.2rem;
+}
+
+html[data-ui='touch'] .home-action-card .text-lg,
+html[data-ui='touch'] .home-action-card .mt-2 {
+  font-size: 0.72rem;
+  line-height: 1rem;
+  margin-top: 0.1rem;
+}
+
+html[data-ui='touch'] .home-recent-card {
+  height: 3.6rem;
+  width: 9.5rem;
+}
+
+html[data-ui='touch'] .home-recent-card > div {
+  padding: 0.35rem 0.45rem;
+}
+
+html[data-ui='touch'] .home-recent .flex {
+  gap: 0.4rem;
+}
+
+/* Channels: two locked columns, rail cannot overlap the list */
+html[data-ui='touch'] .channels-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 30%) minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+html[data-ui='touch'] .channels-rail {
+  width: auto;
+  max-width: none;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  flex-shrink: 1;
+}
+
+html[data-ui='touch'] .channels-rail-head {
+  padding: 0.4rem 0.55rem;
+  min-width: 0;
+}
+
+html[data-ui='touch'] .channels-rail-head h2 {
+  font-size: 0.9rem;
+  line-height: 1.15rem;
+}
+
+html[data-ui='touch'] .channels-playlist-count,
+html[data-ui='touch'] .channels-section-hint,
+html[data-ui='touch'] .channels-cat-list {
+  display: none;
+}
+
+html[data-ui='touch'] .channels-sections {
+  gap: 0.28rem;
+  padding: 0.4rem;
+  min-width: 0;
+}
+
+html[data-ui='touch'] .channels-section {
+  gap: 0.4rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: 0.7rem;
+  min-width: 0;
+}
+
+html[data-ui='touch'] .channels-section-icon {
+  height: 1.65rem;
+  width: 1.65rem;
+  font-size: 0.5rem;
+  border-radius: 0.45rem;
+  flex-shrink: 0;
+}
+
+html[data-ui='touch'] .channels-section-title {
+  font-size: 0.8rem;
+  line-height: 1.05rem;
+}
+
+html[data-ui='touch'] .channels-search {
+  padding: 0.35rem 0.45rem;
+  min-width: 0;
+}
+
+html[data-ui='touch'] .channels-search label {
+  display: none;
+}
+
+html[data-ui='touch'] .channels-search input {
+  padding: 0.4rem 0.55rem;
+  font-size: 0.82rem;
+  border-radius: 0.7rem;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+html[data-ui='touch'] .channels-cat {
+  gap: 0.3rem;
+  padding: 0.32rem 0.4rem;
+  font-size: 0.78rem;
+}
+
+html[data-ui='touch'] .channels-home-btn {
+  margin: 0.35rem;
+  margin-top: auto;
+}
+
+html[data-ui='touch'] .channels-home-btn > div {
+  padding: 0.4rem;
+  font-size: 0.85rem;
+  border-radius: 0.7rem;
+}
+
+html[data-ui='touch'] .channels-stage {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+html[data-ui='touch'] .channels-stage > header {
+  padding: 0.35rem 0.7rem 0.25rem;
+  min-width: 0;
+  gap: 0.5rem;
+}
+
+html[data-ui='touch'] .channels-stage h1 {
+  font-size: 1.05rem;
+  line-height: 1.2rem;
+  margin-top: 0;
+}
+
+html[data-ui='touch'] .channels-count-badge {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
+}
+
+html[data-ui='touch'] .channels-stage-hero {
+  height: 3.25rem;
+}
+
+html[data-ui='touch'] .channels-stage > .relative.z-10.flex-1 {
+  min-width: 0;
+  min-height: 0;
+}
+
+html[data-ui='touch'] .cat-grid {
+  height: 100%;
+  min-height: 0;
+}
+
+html[data-ui='touch'] .cat-grid > p {
+  margin-bottom: 0.4rem;
+  font-size: 0.78rem;
+}
+
+html[data-ui='touch'] .channels-stage .grid-cols-3,
+html[data-ui='touch'] .cat-grid .grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+html[data-ui='touch'] .cat-grid-tile {
+  height: 4.6rem;
+  min-width: 0;
+  width: 100%;
+}
+
+html[data-ui='touch'] .cat-grid-inner {
+  padding: 0.35rem 0.4rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+html[data-ui='touch'] .cat-grid-inner h3 {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+html[data-ui='touch'] .channel-row {
+  height: var(--phone-row);
+  margin-bottom: 0.2rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+html[data-ui='touch'] .channel-row-inner {
+  gap: 0.4rem;
+  padding: 0 0.45rem;
+  border-radius: 0.65rem;
+  overflow: hidden;
+  min-width: 0;
+}
+
+html[data-ui='touch'] .channel-row-inner .text-2xl {
+  font-size: 0.82rem;
+  line-height: 1.05rem;
+}
+
+html[data-ui='touch'] .channel-row-inner .text-lg {
+  font-size: 0.68rem;
+  line-height: 0.85rem;
+}
+
+html[data-ui='touch'] .channel-row-num {
+  width: 1.5rem;
+  font-size: 0.7rem;
+}
+
+html[data-ui='touch'] .channel-pager {
+  padding: 0.25rem 0.4rem;
+  gap: 0.35rem;
+}
+
+html[data-ui='touch'] .channel-pager span {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.75rem;
+}
+
+html[data-ui='touch'] .channels-stage > header p {
+  display: none;
+}
+
+/* Player: fill the screen, chrome cannot overflow the video */
+html[data-ui='touch'] .player-shell {
+  width: 100%;
+  height: var(--app-height, 100%);
+  overflow: hidden;
+}
+
+html[data-ui='touch'] .player-shell .player-chrome {
+  padding: 0.35rem max(0.65rem, env(safe-area-inset-right, 0px)) 0.3rem
+    max(0.65rem, env(safe-area-inset-left, 0px));
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+html[data-ui='touch'] .player-shell header h1 {
+  font-size: 0.95rem;
+  line-height: 1.15rem;
+}
+
+html[data-ui='touch'] .player-shell header .text-xl {
+  font-size: 0.7rem;
+  margin-top: 0;
+}
+
+html[data-ui='touch'] .player-status {
+  padding: 0.15rem 0.55rem;
+  font-size: 0.68rem;
+  max-width: 7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-ui='touch'] .player-info-panel {
+  margin-left: 0.65rem;
+  margin-right: 0.65rem;
+  padding: 0.5rem 0.7rem;
+  max-width: calc(100% - 1.3rem);
+}
+
+html[data-ui='touch'] .timeline-bar {
+  padding-left: 0;
+  padding-right: 0;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+html[data-ui='touch'] .timeline-bar .mb-4 {
+  margin-bottom: 0.2rem;
+  font-size: 0.7rem;
+}
+
+html[data-ui='touch'] .player-transport,
+html[data-ui='touch'] .player-toolbar {
+  margin-top: 0.25rem;
+  gap: 0.3rem;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+html[data-ui='touch'] .player-transport::-webkit-scrollbar,
+html[data-ui='touch'] .player-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-ui='touch'] .player-toolbar {
+  justify-content: space-between;
+}
+
+html[data-ui='touch'] .player-toolbar > div {
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+html[data-ui='touch'] .phone-ctrl {
+  width: var(--phone-ctrl);
+  height: var(--phone-ctrl);
+  flex: 0 0 var(--phone-ctrl);
+}
+
+html[data-ui='touch'] .phone-ctrl-play {
+  width: var(--phone-ctrl-play);
+  height: var(--phone-ctrl-play);
+  flex: 0 0 var(--phone-ctrl-play);
+}
+
+html[data-ui='touch'] .phone-ctrl-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+html[data-ui='touch'] .player-volume-slider,
+html[data-ui='touch'] .player-fs-wrap,
+html[data-ui='touch'] .player-hint,
+html[data-ui='touch'] .player-vol-num,
+html[data-ui='touch'] .player-stop-btn {
+  display: none;
+}
+
+html[data-ui='touch'] .player-shell footer {
+  padding-bottom: 0.35rem;
+  padding-top: 0.2rem;
+  min-width: 0;
+}
+
+/* Settings / favorites / history */
+html[data-ui='touch'] .settings-page,
+html[data-ui='touch'] .list-page {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+html[data-ui='touch'] .settings-head,
+html[data-ui='touch'] .list-page > header {
+  flex-shrink: 0;
+  padding: 0.4rem 0.75rem;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+html[data-ui='touch'] .settings-page h1,
+html[data-ui='touch'] .list-page h1 {
+  font-size: 1.1rem;
+  line-height: 1.25rem;
+}
+
+html[data-ui='touch'] .settings-head p,
+html[data-ui='touch'] .list-page > header p {
+  margin-top: 0.1rem;
+  font-size: 0.72rem;
+}
+
+html[data-ui='touch'] .settings-back,
+html[data-ui='touch'] .list-page > header span {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+html[data-ui='touch'] .settings-body {
+  min-width: 0;
+  min-height: 0;
+  padding: 0.5rem 0.75rem;
+}
+
+html[data-ui='touch'] .settings-stack {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+html[data-ui='touch'] .settings-stack > .space-y-4,
+html[data-ui='touch'] .settings-panel {
+  margin-bottom: 0;
+  padding: 0.5rem 0.7rem;
+  min-width: 0;
+}
+
+html[data-ui='touch'] .settings-panel h3,
+html[data-ui='touch'] .settings-row h3 {
+  font-size: 0.88rem;
+  line-height: 1.15rem;
+  margin-bottom: 0.3rem;
+}
+
+html[data-ui='touch'] .settings-panel .text-lg,
+html[data-ui='touch'] .settings-row .text-lg {
+  font-size: 0.72rem;
+  line-height: 1rem;
+}
+
+html[data-ui='touch'] .settings-device-id {
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+html[data-ui='touch'] .settings-row {
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.45rem 0.7rem;
+  align-items: center;
+}
+
+html[data-ui='touch'] .settings-row-label {
+  min-width: 0;
+  padding-right: 0;
+}
+
+html[data-ui='touch'] .settings-control {
+  flex-shrink: 0;
+}
+
+html[data-ui='touch'] .settings-toggle {
+  height: 1.75rem;
+  width: 3.15rem;
+}
+
+html[data-ui='touch'] .settings-toggle > div {
+  height: 1.75rem;
+  width: 1.75rem;
+}
+
+html[data-ui='touch'] .settings-toggle > div.translate-x-10 {
+  transform: translateX(1.4rem);
+}
+
+html[data-ui='touch'] .settings-control .h-12 {
+  height: 2rem;
+  width: 2rem;
+  font-size: 1rem;
+}
+
+html[data-ui='touch'] .settings-num {
+  min-width: 3.25rem;
+  font-size: 0.95rem;
+}
+
+html[data-ui='touch'] .settings-panel .flex-wrap {
+  gap: 0.35rem;
+}
+
+html[data-ui='touch'] .settings-panel .px-6 {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem;
+}
+
+html[data-ui='touch'] .settings-footer {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+html[data-ui='touch'] .settings-footer::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-ui='touch'] .settings-footer span {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+html[data-ui='touch'] .list-page .flex-1 {
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Android landscape browse shell (phone + TV). webOS / Windows unchanged. */
+.and-shell {
+  --and-bg: #070b16;
+  --and-panel: #101826;
+  --and-card: #172033;
+  --and-line: rgba(255, 255, 255, 0.08);
+  --and-gold: #f5c518;
+  --and-muted: #93a0b5;
+  display: flex;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 80% at 50% -10%, #152238 0%, var(--and-bg) 55%);
+  color: #f4f7fb;
+}
+
+.and-shell [data-focusable='true'].focused,
+.and-shell [data-focusable='true']:focus-visible {
+  transform: none;
+  box-shadow: 0 0 0 2px var(--and-gold);
+  z-index: 2;
+}
+
+.and-home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 0.75rem 1.25rem 0.5rem;
+}
+
+.and-home-brand {
+  text-align: center;
+}
+
+.and-version {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--and-gold);
+}
+
+.and-home-logo,
+.and-wordmark {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.and-home-logo span,
+.and-wordmark span {
+  color: var(--and-gold);
+}
+
+.and-home-playlist {
+  margin: 0.35rem 0 0;
+  color: var(--and-muted);
+  font-size: 0.95rem;
+}
+
+.and-home-playlist strong {
+  color: var(--and-gold);
+}
+
+.and-home-status {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-top: 0.55rem;
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  background: #00000080;
+  font-size: 0.92rem;
+}
+
+.and-home-status .is-on {
+  color: var(--and-gold);
+  font-weight: 700;
+}
+
+.and-home-status .is-off {
+  color: #f87171;
+  font-weight: 700;
+}
+
+.and-home-msg {
+  margin: 0;
+  color: var(--and-gold);
+}
+
+.and-home-msg.is-error {
+  color: #f87171;
+}
+
+.and-home-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 9.5rem));
+  gap: 0.85rem;
+  width: min(100%, 34rem);
+}
+
+.and-tile {
+  display: flex;
+  aspect-ratio: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #1a2740, #0e1624);
+}
+
+.and-tile.focused,
+.and-tile:focus-visible {
+  border-color: var(--and-gold);
+  background: #1d2c48;
+}
+
+.and-tile-icon,
+.and-tile-label {
+  display: block;
+  text-align: center;
+}
+
+.and-tile-icon {
+  margin-top: 18%;
+  font-size: 2.2rem;
+}
+
+.and-tile-label {
+  margin-top: 0.45rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.and-home-utils {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.and-util {
+  border-radius: 0.65rem;
+  background: #1a2333;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.88rem;
+}
+
+.and-util.is-icon {
+  width: 2.4rem;
+  padding: 0.45rem 0;
+  text-align: center;
+}
+
+.and-home-device {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.and-home-device span {
+  font-size: 0.75rem;
+  color: var(--and-muted);
+}
+
+.and-home-device strong {
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.14em;
+}
+
+.and-home-copy {
+  margin: 0;
+  max-width: 36rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--and-gold);
+}
+
+.and-browse {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.and-topbar {
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0.75rem 0.35rem;
+  border-bottom: 1px solid var(--and-line);
+}
+
+.and-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.and-clock {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.and-topbar-mid {
+  text-align: center;
+}
+
+.and-pill {
+  display: inline-block;
+  padding: 0.2rem 0.85rem;
+  border-radius: 999px;
+  background: var(--and-gold);
+  color: #111;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.and-crumb {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--and-muted);
+}
+
+.and-topbar-meta {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.and-meta-card {
+  min-width: 8rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.5rem;
+  background: var(--and-panel);
+}
+
+.and-meta-k,
+.and-meta-s {
+  margin: 0;
+  font-size: 0.65rem;
+  color: var(--and-muted);
+}
+
+.and-meta-v {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.and-body {
+  display: grid;
+  grid-template-columns: 3.1rem minmax(10rem, 15rem) minmax(0, 1fr);
+  min-height: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+}
+
+.and-body:has(.and-preview) {
+  grid-template-columns: 3.1rem minmax(10rem, 14rem) minmax(0, 1.15fr) minmax(9rem, 15rem);
+}
+
+.and-icons {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow: hidden;
+  padding: 0.45rem 0.3rem;
+  background: #0a101c;
+}
+
+.and-icon-btn {
+  display: flex;
+  height: 2.15rem;
+  width: 2.15rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #eceff4;
+  color: #111;
+  font-size: 0.95rem;
+}
+
+.and-cats {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0.4rem 0.4rem 0.4rem 0.15rem;
+  background: #0c1422;
+}
+
+.and-search {
+  margin-bottom: 0.4rem;
+  width: 100%;
+  border: 1px solid var(--and-line);
+  border-radius: 0.5rem;
+  background: var(--and-card);
+  padding: 0.4rem 0.55rem;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.and-cat-scroll {
+  height: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.and-cat {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.28rem;
+  touch-action: pan-y;
+}
+
+.and-cat-inner {
+  border-radius: 0.55rem;
+  background: var(--and-card);
+  padding: 0.45rem 0.55rem;
+}
+
+.and-cat-inner.is-active,
+.and-cat.focused .and-cat-inner,
+.and-cat:focus-visible .and-cat-inner {
+  background: var(--and-gold);
+  color: #111;
+}
+
+.and-cat-name {
+  display: block;
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.and-cat-count {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.68rem;
+  opacity: 0.75;
+}
+
+.and-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0.35rem 0.4rem 0.4rem 0;
+}
+
+.and-main > * {
+  min-height: 0;
+  height: 100%;
+}
+
+.and-main .scrollbar-hidden {
+  height: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.and-empty {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--and-muted);
+}
+
+.and-shell .channel-row {
+  touch-action: pan-y;
+}
+
+.and-shell .channel-row-inner {
+  border-radius: 0.55rem;
+  background: var(--and-card);
+}
+
+.and-shell .channel-row.focused .channel-row-inner,
+.and-shell .channel-row:focus-visible .channel-row-inner {
+  background: var(--and-gold);
+  color: #111;
+}
+
+.and-shell .channel-row.focused .channel-row-inner p,
+.and-shell .channel-row:focus-visible .channel-row-inner p {
+  color: #111;
+}
+
+.and-preview {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0.4rem 0.55rem 0.55rem 0.2rem;
+}
+
+.and-preview-stage {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 0.6rem;
+  background: #000;
+}
+
+.and-epg {
+  margin-top: 0.4rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.5rem;
+  background: var(--and-panel);
+}
+
+.and-epg-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.and-epg-sub {
+  margin: 0.2rem 0 0;
+  color: var(--and-muted);
+  font-size: 0.75rem;
+}
+
+.and-posters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.2rem, 1fr));
+  grid-auto-rows: max-content;
+  align-content: start;
+  align-items: start;
+  gap: 0.55rem;
+  height: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.and-poster-wrap {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+}
+
+.and-poster {
+  display: flex;
+  min-width: 0;
+  min-height: min-content;
+  height: auto;
+  flex-direction: column;
+  align-self: start;
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+.and-poster-art {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  overflow: hidden;
+  aspect-ratio: 2 / 3;
+  border-radius: 0.45rem;
+  background: #0b1018;
+}
+
+.and-poster-art img,
+.and-poster-art > div {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.and-poster-heart {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.35rem;
+  color: #fff;
+  text-shadow: 0 1px 4px #000;
+}
+
+.and-poster-title {
+  margin: 0.3rem 0 0;
+  overflow: hidden;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.and-poster.focused .and-poster-art,
+.and-poster:focus-visible .and-poster-art {
+  outline: 2px solid var(--and-gold);
+}
+
+html[data-ui='touch'] .and-home-logo {
+  font-size: 1.65rem;
+}
+
+html[data-ui='touch'] .and-home-tiles {
+  grid-template-columns: repeat(3, minmax(0, 7.2rem));
+  gap: 0.55rem;
+}
+
+html[data-ui='touch'] .and-tile-icon {
+  font-size: 1.6rem;
+}
+
+html[data-ui='touch'] .and-tile-label {
+  font-size: 0.85rem;
+}
+
+html[data-ui='touch'] .and-body:has(.and-preview) {
+  grid-template-columns: 2.7rem minmax(8.5rem, 12rem) minmax(0, 1fr) minmax(7.5rem, 12rem);
+}
+
+html[data-ui='touch'] .and-shell {
+  touch-action: auto;
+}
+
+html[data-ui='touch'] .and-cat-scroll,
+html[data-ui='touch'] .and-posters,
+html[data-ui='touch'] .and-main .scrollbar-hidden {
+  overflow-y: scroll;
+  touch-action: pan-y;
+}
+
+html[data-ui='touch'] .and-poster {
+  min-height: min-content;
+}
+

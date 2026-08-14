@@ -1,8 +1,10 @@
 import type { RemoteKey, RemoteService } from '../interfaces';
+import { isTextEntryTypingKey, isTypingInField } from '../textEntry';
 
 /**
  * Browser remote mapping — keyboard simulates LG Magic Remote.
- * Arrow keys, Enter, Escape/Backspace → TV remote keys.
+ * Arrow keys, Enter, Escape → TV remote keys.
+ * Backspace (8) is never Back: it must delete in search/URL fields.
  */
 const BROWSER_KEY_MAP: Readonly<Record<number, RemoteKey>> = {
   38: 'ArrowUp',
@@ -10,7 +12,6 @@ const BROWSER_KEY_MAP: Readonly<Record<number, RemoteKey>> = {
   37: 'ArrowLeft',
   39: 'ArrowRight',
   13: 'Enter',
-  8: 'Back',
   27: 'Back',
   32: 'MediaPlayPause',
   179: 'MediaPlayPause',
@@ -25,17 +26,9 @@ export class BrowserRemoteService implements RemoteService {
       const key = this.mapKeyCode(event.keyCode);
       if (!key) return;
 
-      // Allow typing in inputs / search fields.
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
-      ) {
-        if (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'Enter') {
-          return;
-        }
+      // Space / arrows / Enter must reach INPUT/TEXTAREA (search, URL, license).
+      if (isTypingInField(event) && isTextEntryTypingKey(event)) {
+        return;
       }
 
       event.preventDefault();

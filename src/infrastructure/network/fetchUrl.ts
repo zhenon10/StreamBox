@@ -21,7 +21,7 @@ export function resolveFetchUrl(url: string): string {
     return url;
   }
 
-  if (import.meta.env.DEV && detectPlatformType() === 'browser') {
+  if (import.meta.env.DEV) {
     return `${PLAYLIST_PROXY_PATH}?url=${encodeURIComponent(url)}`;
   }
 

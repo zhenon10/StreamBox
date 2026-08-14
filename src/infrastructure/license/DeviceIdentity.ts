@@ -1,4 +1,6 @@
+import { readAndroidDeviceId, writeAndroidDeviceId } from '@/platform/android/deviceId';
 import type { StorageService } from '@/platform/interfaces';
+import { readWindowsDeviceId, writeWindowsDeviceId } from '@/platform/windows/deviceId';
 
 const DEVICE_ID_KEY = 'device.identity.id';
 
@@ -68,14 +70,40 @@ async function tryWebOsDeviceId(timeoutMs = 1500): Promise<string | null> {
   });
 }
 
-export async function getOrCreateDeviceId(storage: StorageService): Promise<string> {
-  const existing = await storage.getItem(DEVICE_ID_KEY);
-  if (existing?.trim()) return existing.trim();
+async function tryNativeDeviceId(): Promise<string | null> {
+  const windowsId = (await readWindowsDeviceId())?.trim() || '';
+  if (alnumLength(windowsId) >= 12) return windowsId;
+  const androidId = (await readAndroidDeviceId())?.trim() || '';
+  if (alnumLength(androidId) >= 12) return androidId;
+  return null;
+}
 
-  const webOsId = await tryWebOsDeviceId();
-  const id = webOsId || `sb_${createUuid()}`;
+async function persistNativeDeviceId(id: string): Promise<void> {
+  await Promise.all([writeWindowsDeviceId(id), writeAndroidDeviceId(id)]);
+}
+
+export async function getOrCreateDeviceId(storage: StorageService): Promise<string> {
+  const existing = (await storage.getItem(DEVICE_ID_KEY))?.trim() ?? '';
+  if (alnumLength(existing) >= 12) {
+    await persistNativeDeviceId(existing);
+    return existing;
+  }
+
+  const nativeId = (await tryNativeDeviceId()) ?? '';
+  if (alnumLength(nativeId) >= 12) {
+    await storage.setItem(DEVICE_ID_KEY, nativeId);
+    return nativeId;
+  }
+
+  const webOsId = (await tryWebOsDeviceId())?.trim() || '';
+  const id = alnumLength(webOsId) >= 12 ? webOsId : `sb_${createUuid()}`;
   await storage.setItem(DEVICE_ID_KEY, id);
+  await persistNativeDeviceId(id);
   return id;
+}
+
+function alnumLength(value: string): number {
+  return value.replace(/[^a-zA-Z0-9]/g, '').length;
 }
 
 /** Short form for support / UI (last 8 chars). */

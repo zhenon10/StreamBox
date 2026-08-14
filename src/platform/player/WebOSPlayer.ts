@@ -1,3 +1,5 @@
+import type { PlatformType } from '../detectPlatform';
+import type { VideoPlayerEvents, VideoPlayerService } from '../interfaces';
 import { HTML5Player } from './HTML5Player';
 import {
   VideoPlayerType,
@@ -5,7 +7,6 @@ import {
   type IVideoPlayerEvents,
   type IVideoPlayerFactory,
 } from './IVideoPlayer';
-import type { VideoPlayerEvents, VideoPlayerService } from '../interfaces';
 
 /** webOS-optimized player extending HTML5 with platform-specific tuning. */
 export class WebOSPlayer extends HTML5Player {
@@ -165,7 +166,7 @@ export class HTML5VideoPlayerAdapter implements IVideoPlayer {
 }
 
 export class VideoPlayerFactory implements IVideoPlayerFactory {
-  constructor(private readonly platformType: 'webos' | 'browser') {}
+  constructor(private readonly platformType: PlatformType) {}
 
   create(): IVideoPlayer {
     return this.platformType === 'webos'

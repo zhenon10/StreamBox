@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml"
+>
+  <url>
+    <loc>https://ivplayer.tr/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ivplayer.tr/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/" />
+  </url>
+  <url>
+    <loc>https://ivplayer.tr/download.html</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ivplayer.tr/download.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/download.html" />
+  </url>
+  <url>
+    <loc>https://ivplayer.tr/activation.html</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ivplayer.tr/activation.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/activation.html" />
+  </url>
+  <url>
+    <loc>https://ivplayer.tr/app/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ivplayer.tr/app/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/app/" />
+  </url>
+  <url>
+    <loc>https://ivplayer.tr/support.html</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ivplayer.tr/support.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/support.html" />
+  </url>
+  <url>
+    <loc>https://ivplayer.tr/contact.html</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ivplayer.tr/contact.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/contact.html" />
+  </url>
+  <url>
+    <loc>https://ivplayer.tr/privacy.html</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ivplayer.tr/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/privacy.html" />
+  </url>
+  <url>
+    <loc>https://ivplayer.tr/delivery.html</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ivplayer.tr/delivery.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/delivery.html" />
+  </url>
+  <url>
+    <loc>https://ivplayer.tr/refund.html</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ivplayer.tr/refund.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/refund.html" />
+  </url>
+  <url>
+    <loc>https://ivplayer.tr/distance-sales-contract.html</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ivplayer.tr/distance-sales-contract.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/distance-sales-contract.html" />
+  </url>
+  <url>
+    <loc>https://ivplayer.tr/sales-policy.html</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ivplayer.tr/sales-policy.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/sales-policy.html" />
+  </url>
+</urlset>

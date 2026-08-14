@@ -1,0 +1,7 @@
+target/
+WixTools/
+*.pdb
+icons/ios/
+icons/android/
+icons/Square*.png
+icons/StoreLogo.png

@@ -1,0 +1,11 @@
+{
+  "identifier": "default",
+  "description": "IvPlayer desktop window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "dialog:default",
+    "allow-app-ipc"
+  ]
+}

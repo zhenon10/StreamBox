@@ -3,18 +3,121 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>IvPlayer — LG webOS Medya Oynatıcı</title>
+    <title>IvPlayer — Medya Oynatıcı</title>
     <meta
       name="description"
-      content="IvPlayer, LG webOS TV'lerde kendi yetkili M3U ve playlist kaynaklarınızı oynatmanızı sağlayan medya oynatıcıdır."
+      content="IvPlayer; Windows, Android telefon, Android TV, web ve LG TV’de kendi yetkili M3U ve playlist kaynaklarınızı oynatmanızı sağlayan medya oynatıcıdır."
     />
+    <link rel="canonical" href="https://ivplayer.tr/" />
+    <link rel="alternate" hreflang="tr" href="https://ivplayer.tr/" />
+    <link rel="alternate" hreflang="x-default" href="https://ivplayer.tr/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="IvPlayer" />
+    <meta property="og:locale" content="tr_TR" />
+    <meta property="og:title" content="IvPlayer — Medya Oynatıcı" />
+    <meta
+      property="og:description"
+      content="IvPlayer; Windows, Android telefon, Android TV, web ve LG TV’de kendi yetkili M3U ve playlist kaynaklarınızı oynatmanızı sağlayan medya oynatıcıdır."
+    />
+    <meta property="og:url" content="https://ivplayer.tr/" />
+    <meta property="og:image" content="https://ivplayer.tr/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Person",
+            "@id": "https://ivplayer.tr/#seller",
+            "name": "Mehmet Burak Fırat",
+            "url": "https://ivplayer.tr/contact.html",
+            "email": "destek@ivplayer.tr",
+            "telephone": "+90 543 342 07 03",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "Albay Ruhi Baycad Cad. No: 15/B",
+              "addressLocality": "İvrindi",
+              "addressRegion": "Balıkesir",
+              "addressCountry": "TR"
+            }
+          },
+          {
+            "@type": "SoftwareApplication",
+            "name": "IvPlayer",
+            "applicationCategory": "MultimediaApplication",
+            "operatingSystem": "Windows, Android, Android TV, Web, webOS",
+            "url": "https://ivplayer.tr/",
+            "image": "https://ivplayer.tr/og-image.png",
+            "description": "Windows, Android telefon, Android TV, web ve LG TV için medya oynatıcı. Kullanıcının kendi yetkili M3U/M3U8 listesini oynatır. TV kanalı, IPTV aboneliği veya kanal paketi sağlamaz.",
+            "brand": { "@type": "Brand", "name": "IvPlayer" },
+            "publisher": { "@id": "https://ivplayer.tr/#seller" },
+            "offers": [
+              {
+                "@type": "Offer",
+                "name": "1 yıllık yazılım lisansı",
+                "price": "299.00",
+                "priceCurrency": "TRY"
+              },
+              {
+                "@type": "Offer",
+                "name": "Ömür boyu yazılım lisansı",
+                "price": "799.00",
+                "priceCurrency": "TRY"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "IvPlayer ücretsiz mi?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "IvPlayer Windows, Android, Android TV, web ve LG TV üzerinden ücretsiz indirilebilir. Premium kullanım için yazılım lisansı satın alınabilir."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "IvPlayer yayın sağlıyor mu?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Hayır. IvPlayer bir medya oynatıcıdır. TV kanalı, IPTV aboneliği veya kanal paketi sağlamaz. Kendi yetkili M3U / playlist kaynağınızı kullanırsınız."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Cihaz kodumu nerede bulabilirim?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Cihazınızda IvPlayer’ı açın. Ana ekranda XXXX-XXXX-XXXX formatında 12 haneli cihaz kodu görünür."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Play Store veya Microsoft Store’da var mı?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Hayır. Windows kurulumunu ve Android APK’sını ivplayer.tr indirme sayfasından alırsınız. Android TV aynı APK’yı kullanır. LG TV için LG Content Store."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Lisans nasıl aktif olur?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Ödeme doğrulandıktan sonra lisans cihaz koduna bağlanır. Uygulamada Lisansı kontrol et deyin."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
     <link rel="icon" href="/logo.png" type="image/png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Sora:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body class="page-home">
@@ -22,32 +125,33 @@
 
     <header class="site-header">
       <a class="logo-lockup" href="/">
-        <img src="/logo.png" width="40" height="40" alt="" />
+        <img src="/logo.png" width="40" height="40" alt="IvPlayer" />
         <span class="wordmark"><span class="iv">IV</span>PLAYER</span>
       </a>
       <nav class="site-nav">
-        <a href="/#how">Nasıl çalışır</a>
-        <a href="/#features">Özellikler</a>
-        <a href="/#faq">SSS</a>
-        <a href="/privacy.html">Gizlilik</a>
+        <a href="/">Ana sayfa</a>
+        <a href="/download.html">İndir</a>
         <a href="/support.html">Destek</a>
         <a class="nav-cta" href="/activation.html">Lisans Satın Al</a>
+        <a class="nav-cta-ghost" href="https://ivplayer.tr/app/">Web oynatıcı</a>
       </nav>
     </header>
 
     <main>
       <section class="hero">
-        <p class="eyebrow">LG webOS medya oynatıcı</p>
+        <p class="eyebrow">Windows · Android · Android TV · Web · LG TV</p>
         <img class="hero-logo" src="/logo.png" width="280" height="280" alt="IvPlayer" />
-        <h1>IvPlayer</h1>
+        <h1>IvPlayer — Medya Oynatıcı</h1>
         <p class="hero-lead" style="font-size:1.2rem;color:var(--text);font-weight:600">
-          LG webOS için sade ve güçlü medya oynatıcı.
+          Bilgisayar, telefon, Android TV ve LG TV’de aynı oynatıcı.
         </p>
         <p class="hero-lead">
-          Kendi yetkili M3U / playlist kaynaklarınızı LG webOS TV’nizde tek uygulamadan oynatın.
+          Uygulamayı indirin, cihaz kodunuzu görüntüleyin ve yazılım lisansınızı çevrimiçi olarak
+          satın alın.
         </p>
+        <p class="hero-lead">Lisansa yayın veya kanal paketi dahil değildir.</p>
         <div class="hero-cta">
-          <a class="btn btn-primary" href="#how">LG Content Store’dan Ücretsiz İndir</a>
+          <a class="btn btn-primary" href="/download.html">Uygulamayı indir</a>
           <a class="btn btn-ghost" href="/activation.html">Lisans Satın Al</a>
         </div>
       </section>
@@ -59,7 +163,10 @@
             <span class="step-num">1</span>
             <div>
               <h3>Uygulamayı yükle</h3>
-              <p>LG Content Store’dan IvPlayer’ı ücretsiz indirin.</p>
+              <p>
+                Windows, Android, Android TV, web veya LG TV için IvPlayer’ı
+                <a href="/download.html">ücretsiz indirin</a>.
+              </p>
             </div>
           </li>
           <li>
@@ -76,7 +183,10 @@
             <span class="step-num">3</span>
             <div>
               <h3>Lisansınızı satın alın</h3>
-              <p>Cihaz kodunuzu girerek 1 yıllık veya ömür boyu IvPlayer lisansı satın alın.</p>
+              <p>
+                Cihaz kodunuzu girerek 1 yıllık veya ömür boyu IvPlayer lisansı satın alın. Ardından
+                uygulamada “Lisansı kontrol et” deyin.
+              </p>
             </div>
           </li>
           <li>
@@ -92,11 +202,72 @@
       <section class="platforms" id="platforms">
         <h2>Platformlar</h2>
         <ul class="platform-row">
-          <li class="live"><span>LG webOS</span><small>Ücretsiz uygulama</small></li>
-          <li class="live"><span>Web</span><small>Canlı</small></li>
-          <li class="soon"><span>Android TV</span><small>Planlı</small></li>
-          <li class="soon"><span>Mobil</span><small>Planlı</small></li>
+          <li class="live">
+            <a href="/downloads/IvPlayer-Setup-1.0.0.exe" download>
+              <span>Windows</span><small>Kurulumu indir</small>
+            </a>
+          </li>
+          <li class="live">
+            <a href="/downloads/IvPlayer-1.0.0.apk" download>
+              <span>Android</span><small>APK indir</small>
+            </a>
+          </li>
+          <li class="live">
+            <a href="https://ivplayer.tr/app/"><span>Web</span><small>Canlı oynatıcı</small></a>
+          </li>
+          <li class="live">
+            <a href="/download.html">
+              <span>LG TV</span><small>Content Store</small>
+            </a>
+          </li>
+          <li class="live">
+            <a href="/downloads/IvPlayer-1.0.0.apk" download>
+              <span>Android TV</span><small>APK indir</small>
+            </a>
+          </li>
         </ul>
+      </section>
+
+      <section class="downloads" id="downloads">
+        <h2>İndir</h2>
+        <p class="section-lead">
+          Uygulama ücretsizdir. Premium kullanım için
+          <a href="/activation.html">yazılım lisansı</a> gerekir. Yayın veya kanal paketi dahil
+          değildir.
+        </p>
+        <div class="download-grid">
+          <article class="download-card">
+            <h3>Windows</h3>
+            <p>Windows 10 / 11, 64-bit kurulum. Microsoft Store değildir.</p>
+            <a class="btn btn-primary" href="/downloads/IvPlayer-Setup-1.0.0.exe" download
+              >IvPlayer Setup (.exe)</a
+            >
+          </article>
+          <article class="download-card">
+            <h3>Android</h3>
+            <p>Telefon APK, yatay ekran. Play Store değildir; sideload.</p>
+            <a class="btn btn-primary" href="/downloads/IvPlayer-1.0.0.apk" download
+              >IvPlayer APK</a
+            >
+          </article>
+          <article class="download-card">
+            <h3>Android TV</h3>
+            <p>Aynı APK. Kumanda ile 10-ayak arayüz; Play Store değildir.</p>
+            <a class="btn btn-primary" href="/downloads/IvPlayer-1.0.0.apk" download
+              >IvPlayer APK</a
+            >
+          </article>
+          <article class="download-card">
+            <h3>LG TV</h3>
+            <p>LG Content Store’dan ücretsiz uygulama.</p>
+            <a class="btn btn-ghost" href="#how">Nasıl yüklenir</a>
+          </article>
+          <article class="download-card">
+            <h3>Web oynatıcı</h3>
+            <p>Tarayıcıda hemen açın.</p>
+            <a class="btn btn-ghost" href="https://ivplayer.tr/app/">ivplayer.tr/app</a>
+          </article>
+        </div>
       </section>
 
       <section class="disclaimer" id="important">
@@ -108,9 +279,8 @@
             kullanır.
           </p>
           <p>
-            IvPlayer, LG webOS TV’lerde kendi yetkili M3U / playlist kaynaklarınızı oynatmanızı
-            sağlayan bir medya oynatıcıdır. IvPlayer herhangi bir TV kanalı, yayın listesi veya
-            medya içeriği sağlamaz.
+            IvPlayer, kendi yetkili M3U / playlist kaynaklarınızı oynatmanızı sağlayan bir medya
+            oynatıcıdır. IvPlayer herhangi bir TV kanalı, yayın listesi veya medya içeriği sağlamaz.
           </p>
           <p>
             Resmi site:
@@ -124,36 +294,36 @@
         <p class="section-lead">Uygulamada bulunan başlıca özellikler.</p>
         <ul class="feature-grid">
           <li>
-            <h3>LG webOS TV</h3>
-            <p>Kumanda ve TV arayüzüne uygun oynatıcı.</p>
+            <h3>Çok platformlu</h3>
+            <p>Windows, Android telefon, Android TV, tarayıcı ve LG TV’de aynı oynatıcı.</p>
           </li>
           <li>
-            <h3>Hızlı kanal geçişi</h3>
-            <p>Kumanda ile kanal değiştirme.</p>
+            <h3>Kumanda ve dokunmatik</h3>
+            <p>TV’de D-pad, telefonda yatay dokunmatik, bilgisayarda klavye.</p>
+          </li>
+          <li>
+            <h3>Canlı, film, dizi</h3>
+            <p>Listenizi bölümlere ayırır; kategoriler ve arama ile gezinirsiniz.</p>
           </li>
           <li>
             <h3>M3U / playlist</h3>
             <p>Kendi yetkili listenizi URL veya dosya olarak ekleyin.</p>
           </li>
           <li>
-            <h3>Favoriler</h3>
-            <p>Sık kullandığınız kanalları kaydedin.</p>
-          </li>
-          <li>
-            <h3>İzleme geçmişi</h3>
-            <p>Son izlenenlere dönüş.</p>
+            <h3>Favoriler ve geçmiş</h3>
+            <p>Sık kullandığınız kanallar ve son izlenenler.</p>
           </li>
           <li>
             <h3>Lisans yönetimi</h3>
-            <p>Cihaz kodu, lisans durumu ve Ayarlar’dan lisans kaldırma.</p>
+            <p>Cihaz kodu, Lisansı kontrol et ve Ayarlar’dan lisans kaldırma.</p>
           </li>
           <li>
-            <h3>HLS ve yayın formatları</h3>
-            <p>HLS ve uygulamada desteklenen diğer yayın formatları.</p>
+            <h3>HLS ve MPEG-TS</h3>
+            <p>Uygulamada desteklenen yayın formatları.</p>
           </li>
           <li>
-            <h3>Arama</h3>
-            <p>Kanal listesinde anahtar kelime ile arama.</p>
+            <h3>Hızlı kanal geçişi</h3>
+            <p>Oynatıcıda sonraki / önceki kanal; kontroller kısa süre sonra gizlenir.</p>
           </li>
         </ul>
       </section>
@@ -161,21 +331,23 @@
       <section class="pricing home-pricing" id="pricing">
         <h2>IvPlayer lisansı</h2>
         <p class="section-lead">
-          IvPlayer LG webOS Medya Oynatıcı Lisansı. 1 yıllık veya ömür boyu yazılım lisansı. İçerik
-          dahil değildir.
+          IvPlayer Medya Oynatıcı Lisansı. 1 yıllık veya ömür boyu yazılım lisansı. İçerik dahil
+          değildir.
         </p>
         <div class="plan-grid plan-grid-2">
           <article class="plan-card">
             <p class="plan-badge">1 yıllık lisans</p>
             <h3>1 yıl</h3>
-            <p class="plan-note">1 yıl boyunca IvPlayer kullanım lisansı.</p>
+            <p class="plan-price">299 TL</p>
+            <p class="plan-note">1 yıl boyunca IvPlayer yazılım lisansı. İçerik dahil değildir.</p>
             <a class="btn btn-primary" href="/activation.html">Lisans Satın Al</a>
           </article>
           <article class="plan-card plan-featured">
             <p class="plan-badge">Ömür boyu lisans</p>
             <h3>Ömür boyu</h3>
+            <p class="plan-price">799 TL</p>
             <p class="plan-note">
-              Tek seferlik ödeme ile IvPlayer kullanım lisansı. Yayın veya kanal erişimi anlamına
+              Tek seferlik ödeme ile IvPlayer yazılım lisansı. Yayın veya kanal erişimi anlamına
               gelmez.
             </p>
             <a class="btn btn-primary" href="/activation.html">Lisans Satın Al</a>
@@ -188,14 +360,14 @@
         <details>
           <summary>IvPlayer ücretsiz mi?</summary>
           <p>
-            IvPlayer LG Content Store üzerinden ücretsiz indirilebilir. Uygulamanın premium kullanım
-            özellikleri için IvPlayer lisansı satın alınabilir.
+            IvPlayer Windows, Android, Android TV, web ve LG TV üzerinden ücretsiz indirilebilir. Uygulamanın
+            premium kullanım özellikleri için IvPlayer lisansı satın alınabilir.
           </p>
         </details>
         <details>
           <summary>Cihaz kodumu nerede bulabilirim?</summary>
           <p>
-            LG TV’nizde IvPlayer’ı açtığınızda uygulama ekranında XXXX-XXXX-XXXX formatında
+            Cihazınızda IvPlayer’ı açtığınızda uygulama ekranında XXXX-XXXX-XXXX formatında
             gösterilir.
           </p>
         </details>
@@ -204,6 +376,13 @@
           <p>
             Hayır. IvPlayer bir medya oynatıcıdır. Uygulama herhangi bir TV kanalı veya yayın
             aboneliği sağlamaz. Kendi yetkili M3U / playlist kaynaklarınızı kullanabilirsiniz.
+          </p>
+        </details>
+        <details>
+          <summary>Play Store veya Microsoft Store’da var mı?</summary>
+          <p>
+            Hayır. Windows için kurulum dosyasını, Android ve Android TV için APK’yı bu siteden
+            indirirsiniz. LG TV için LG Content Store kullanılır.
           </p>
         </details>
         <details>
@@ -218,16 +397,21 @@
 
     <footer class="site-footer">
       <a class="logo-lockup" href="/">
-        <img src="/logo.png" width="32" height="32" alt="" />
+        <img src="/logo.png" width="32" height="32" alt="IvPlayer" />
         <span class="wordmark"><span class="iv">IV</span>PLAYER</span>
       </a>
-      <p>
-        <a href="/privacy.html">Gizlilik</a>
-        ·
-        <a href="/support.html">Destek</a>
-        ·
+      <nav class="footer-links" aria-label="Yasal ve ticari">
+        <a href="/">Ana Sayfa</a>
+        <a href="/download.html">İndir</a>
         <a href="/activation.html">Lisans Satın Al</a>
-      </p>
+        <a href="/support.html">Destek</a>
+        <a href="/privacy.html">Gizlilik Politikası</a>
+        <a href="/contact.html">İletişim</a>
+        <a href="/delivery.html">Teslimat Koşulları</a>
+        <a href="/refund.html">İptal ve İade</a>
+        <a href="/distance-sales-contract.html">Mesafeli Satış Sözleşmesi</a>
+        <a href="/sales-policy.html">Satış Politikası</a>
+      </nav>
       <p class="copy">© 2026 IvPlayer</p>
     </footer>
   </body>

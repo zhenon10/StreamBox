@@ -1,3 +1,39 @@
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/outfit-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/outfit-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Sora";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/sora-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Sora";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/sora-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   color-scheme: dark;
   --bg: #07090f;
@@ -162,6 +198,15 @@ main > section {
   background: var(--grad);
   color: #fff !important;
   font-weight: 600 !important;
+}
+
+.nav-cta-ghost {
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--text) !important;
+  font-weight: 600 !important;
+  background: transparent;
 }
 
 .hero {
@@ -330,6 +375,64 @@ button.btn:disabled {
 
 .platform-row .live small {
   color: #ff8f86;
+}
+
+.platform-row a {
+  display: grid;
+  gap: 0.25rem;
+  color: inherit;
+  text-decoration: none;
+  margin: -1rem -0.85rem;
+  padding: 1rem 0.85rem;
+}
+
+.platform-row a:hover span {
+  color: #ff8f86;
+}
+
+.downloads {
+  padding: 2.75rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.downloads h2 {
+  margin: 0 0 1rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  letter-spacing: -0.01em;
+}
+
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.9rem;
+}
+
+.download-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.1rem 1.35rem;
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
+}
+
+.download-card h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+}
+
+.download-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.download-card .btn {
+  margin-top: 0.35rem;
+  justify-self: start;
 }
 
 .disclaimer-copy {
@@ -752,6 +855,41 @@ button.btn:disabled {
   margin: 0;
 }
 
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+}
+
+.footer-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.86rem;
+}
+
+.footer-links a:hover {
+  color: var(--text);
+}
+
+.notice-box {
+  border-color: rgba(229, 45, 39, 0.35);
+}
+
+.contact-dl {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: 0.45rem 1rem;
+  margin: 0;
+}
+
+.contact-dl dt {
+  color: var(--muted);
+}
+
+.contact-dl dd {
+  margin: 0;
+}
+
 .site-nav a.is-active {
   color: var(--text);
 }
@@ -902,7 +1040,7 @@ button.btn:disabled {
 }
 
 @media (max-width: 720px) {
-  .site-nav a:not(.nav-cta) {
+  .site-nav a:not(.nav-cta):not(.nav-cta-ghost) {
     display: none;
   }
 

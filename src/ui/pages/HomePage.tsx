@@ -14,6 +14,7 @@ import {
 import {
   activateLicense,
   claimDeviceLicense,
+  getStoredLicense,
   validateStoredLicense,
 } from '@/application/usecases/licenseUseCases';
 import { playlistGroupsNeedRepair } from '@/domain/content/contentSection';
@@ -22,12 +23,17 @@ import {
   formatPurchaseCode,
   getOrCreateDeviceId,
 } from '@/infrastructure/license/DeviceIdentity';
-import { playlistRequiresLicense } from '@/domain/license/storeBuild';
+import { isPlayStoreBuild, playlistRequiresLicense } from '@/domain/license/storeBuild';
+import { isAndroidUi } from '@/platform/detectPlatform';
+import { AndroidHomeLayout } from '@/ui/android/AndroidHomeLayout';
+import type { ContentSection } from '@/domain/content/contentSection';
+import type { PlaylistId } from '@/domain/entities';
 import { licenseErrorKey, type MessageKey } from '@/i18n';
 import { useLocale, useT } from '@/i18n/useT';
 
 /** Store / production: playlist URL only after a device-bound player license. */
 const STORE_BUILD = playlistRequiresLicense();
+const PLAY_STORE = isPlayStoreBuild();
 const BUY_SITE = 'https://ivplayer.tr/activation.html';
 
 function formatPlaylistLoadError(error: unknown): string {
@@ -102,16 +108,19 @@ function menuItemsForLicense(licensed: boolean): readonly MenuItem[] {
   if (!STORE_BUILD) {
     return ALL_MENU_ITEMS;
   }
-  // Free store app: URL/file only after website purchase is bound to this device.
-  if (!licensed) {
-    return ALL_MENU_ITEMS.filter(
-      (item) =>
-        item.action === 'check' ||
-        item.action === 'activate' ||
-        (item.action === 'navigate' && item.path === '/settings'),
-    );
-  }
-  return ALL_MENU_ITEMS.filter((item) => item.action !== 'activate');
+  const items = !licensed
+    ? ALL_MENU_ITEMS.filter(
+        (item) =>
+          item.action === 'check' ||
+          item.action === 'activate' ||
+          (item.action === 'navigate' && item.path === '/settings'),
+      )
+    : ALL_MENU_ITEMS.filter((item) => item.action !== 'activate');
+
+  if (!PLAY_STORE) return items;
+  return items.map((item) =>
+    item.action === 'check' ? { ...item, subtitleKey: 'menu.checkLicenseSubPlay' as const } : item,
+  ) as readonly MenuItem[];
 }
 
 function buildHomeGraph(
@@ -185,11 +194,13 @@ export function HomePage(): ReactNode {
     loadProgress,
     loadError,
     recentPlaylists,
+    currentPlaylist,
     setLoading,
     setLoadProgress,
     setLoadError,
     setCurrentPlaylist,
     setRecentPlaylists,
+    setContentSection,
   } = usePlaylistStore();
 
   const licenseDeps = useCallback(
@@ -243,30 +254,90 @@ export function HomePage(): ReactNode {
     ],
   );
 
+  const restoreLastPlaylist = useCallback(async (): Promise<void> => {
+    if (usePlaylistStore.getState().currentPlaylist) return;
+    try {
+      const recent = await repositories.recentPlaylists.getRecent(10);
+      setRecentPlaylists(recent);
+      const last = recent[0];
+      if (!last) return;
+
+      let playlist = await repositories.playlists.getById(last.id as PlaylistId);
+      const needsFetch =
+        last.source.type === 'url' &&
+        (!playlist ||
+          playlist.channels.length === 0 ||
+          playlistGroupsNeedRepair(playlist.channels));
+
+      if (needsFetch) {
+        setLoading(true);
+        setLoadError(null);
+        setLoadProgress(0);
+        try {
+          playlist = await loadPlaylistFromUrl(
+            {
+              network: platform.network,
+              playlistRepo: repositories.playlists,
+              recentRepo: repositories.recentPlaylists,
+              channelIndex,
+              channelRepo: repositories.channels,
+              contentProviders: services.resolve(TOKENS.contentProviderRegistry),
+              eventPublisher: services.resolve(TOKENS.eventPublisher),
+              performanceMonitor: services.resolve(TOKENS.performanceMonitor),
+            },
+            last.source.location,
+            (progress) => setLoadProgress(progress.loaded),
+          );
+        } catch (error) {
+          setLoadError(formatPlaylistLoadError(error));
+          if (playlist && playlist.channels.length > 0) {
+            setCurrentPlaylist(playlist);
+          }
+          return;
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      if (playlist) setCurrentPlaylist(playlist);
+    } catch {
+      /* restore is best-effort */
+    }
+  }, [
+    setCurrentPlaylist,
+    setLoadError,
+    setLoadProgress,
+    setLoading,
+    setRecentPlaylists,
+  ]);
+
   useEffect(() => {
     void (async () => {
       const deviceId = await getOrCreateDeviceId(platform.storage);
       setDeviceCode(formatPurchaseCode(deviceId));
 
+      const cached = await getStoredLicense(licenseDeps());
+      if (cached && cached.expiresAt > Date.now()) {
+        setLicenseSnapshot(cached);
+      }
+
       const validated = await validateStoredLicense(licenseDeps());
       if (validated.ok) {
         setLicenseSnapshot(validated.snapshot);
-        const recent = await repositories.recentPlaylists.getRecent(10);
-        setRecentPlaylists(recent);
-      } else {
+      } else if (validated.error === 'network' && cached && cached.expiresAt > Date.now()) {
+        setLicenseSnapshot(cached);
+      } else if (
+        validated.error === 'expired' ||
+        validated.error === 'not_found' ||
+        validated.error === 'device_mismatch'
+      ) {
         setLicenseSnapshot(null);
-        if (STORE_BUILD) {
-          setCurrentPlaylist(null);
-          setRecentPlaylists([]);
-          await repositories.recentPlaylists.clear();
-        } else {
-          const recent = await repositories.recentPlaylists.getRecent(10);
-          setRecentPlaylists(recent);
-        }
       }
+
+      await restoreLastPlaylist();
       setLicenseChecked(true);
     })();
-  }, [licenseDeps, setCurrentPlaylist, setRecentPlaylists]);
+  }, [licenseDeps, restoreLastPlaylist]);
 
   const handleLoadFile = useCallback(async () => {
     setLoading(true);
@@ -336,6 +407,7 @@ export function HomePage(): ReactNode {
   }, [checkingLicense, licenseDeps, setLoadError, t]);
 
   const handleBuyOnSite = useCallback(() => {
+    if (PLAY_STORE) return;
     const url = deviceCode
       ? `${BUY_SITE}?device=${encodeURIComponent(deviceCode)}`
       : BUY_SITE;
@@ -450,14 +522,60 @@ export function HomePage(): ReactNode {
     ? new Date(licenseSnapshot.expiresAt).toLocaleDateString(locale === 'tr' ? 'tr-TR' : 'en-US')
     : '';
 
-  return (
-    <div className="flex h-full flex-col bg-gradient-to-br from-surface-950 via-surface-900 to-surface-950">
-      <header className="flex items-center justify-between px-16 pt-12 pb-8">
+  const openSection = (section: ContentSection): void => {
+    if (STORE_BUILD && !licenseSnapshot) {
+      void handleCheckLicense();
+      return;
+    }
+    if (!currentPlaylist) {
+      services.resolve(TOKENS.navigationGraph).pushModal('url-dialog');
+      setUrlDialogOpen(true);
+      return;
+    }
+    setContentSection(section);
+    navigate('/channels');
+  };
+
+  const android = isAndroidUi();
+
+  const homeBody = android ? (
+    <AndroidHomeLayout
+      deviceCode={deviceCode}
+      licenseSnapshot={licenseSnapshot}
+      licenseChecked={licenseChecked}
+      expiresLabel={expiresLabel}
+      isLoading={isLoading}
+      loadProgress={loadProgress}
+      loadError={loadError}
+      currentPlaylist={currentPlaylist}
+      playStore={PLAY_STORE}
+      checkingLicense={checkingLicense}
+      onCheckLicense={() => void handleCheckLicense()}
+      onBuy={handleBuyOnSite}
+      onOpenUrl={() => {
+        services.resolve(TOKENS.navigationGraph).pushModal('url-dialog');
+        setUrlDialogOpen(true);
+      }}
+      onOpenFile={() => void handleLoadFile()}
+      onActivate={() => {
+        setActivateError(null);
+        services.resolve(TOKENS.navigationGraph).pushModal('activate-dialog');
+        setActivateDialogOpen(true);
+      }}
+      onSettings={() => navigate('/settings')}
+      onExit={() => platform.platform.exitApp()}
+      onLive={() => openSection('live')}
+      onMovies={() => openSection('movie')}
+      onSeries={() => openSection('series')}
+    />
+  ) : (
+    <div className="app-scroll home-page flex h-full min-h-0 flex-col bg-gradient-to-br from-surface-950 via-surface-900 to-surface-950">
+      <header className="home-header flex items-center justify-between px-16 pt-12 pb-8">
         <div>
           <h1 className="text-5xl font-bold tracking-tight text-white">
             Iv<span className="text-accent-400">Player</span>
           </h1>
-          <p className="mt-2 text-xl text-slate-400">{t('app.tagline')}</p>
+          <p className="home-tagline mt-2 text-xl text-slate-400">{t('app.tagline')}</p>
         </div>
         <div className="text-right text-lg text-slate-500">
           <div>{platform.platform.getDeviceInfo().platform.toUpperCase()}</div>
@@ -469,14 +587,15 @@ export function HomePage(): ReactNode {
         </div>
       </header>
 
+      <div className="home-side min-h-0 min-w-0 overflow-hidden">
       {licenseChecked && STORE_BUILD && (
-        <section className="mx-16 mb-6">
+        <section className="home-device mx-16 mb-6">
           <Focusable
             focusId="device-card"
             focusGroup="home-device"
             focusPriority={16}
             className="block w-full"
-            onClick={handleBuyOnSite}
+            onClick={PLAY_STORE ? undefined : handleBuyOnSite}
           >
             <div className="rounded-2xl border border-white/10 bg-surface-900/80 px-8 py-6 [.focused_&]:border-accent-400">
               <p className="text-sm font-medium uppercase tracking-wider text-accent-300">
@@ -485,10 +604,14 @@ export function HomePage(): ReactNode {
               <p className="mt-2 font-mono text-4xl font-bold tracking-[0.18em] text-white">
                 {deviceCode || '…'}
               </p>
-              <p className="mt-3 max-w-3xl text-base text-slate-400">{t('home.deviceHint')}</p>
-              <p className="mt-2 text-lg text-accent-300">
-                {t('home.buyOnSite')}: {t('home.buyUrl')}
+              <p className="home-device-hint mt-3 max-w-3xl text-base text-slate-400">
+                {t(PLAY_STORE ? 'home.deviceHintPlay' : 'home.deviceHint')}
               </p>
+              {!PLAY_STORE && (
+                <p className="mt-2 text-lg text-accent-300">
+                  {t('home.buyOnSite')}: {t('home.buyUrl')}
+                </p>
+              )}
             </div>
           </Focusable>
         </section>
@@ -512,7 +635,7 @@ export function HomePage(): ReactNode {
       )}
 
       {licenseSnapshot && (
-        <section className="mx-16 mb-6">
+        <section className="home-license mx-16 mb-6">
           <Focusable
             focusId="license-open"
             focusGroup="home-license"
@@ -542,7 +665,18 @@ export function HomePage(): ReactNode {
         </section>
       )}
 
-      <section className="px-16 pb-8">
+      {licenseChecked && STORE_BUILD && !licenseSnapshot && (
+        <section className="home-license-required mx-16 mb-6 rounded-2xl border border-surface-600 bg-surface-900/80 px-8 py-5">
+          <p className="text-xl font-semibold text-white">{t('home.licenseRequired')}</p>
+          <p className="mt-1 text-base text-slate-400">
+            {t(PLAY_STORE ? 'home.licenseRequiredHintPlay' : 'home.licenseRequiredHint')}
+          </p>
+        </section>
+      )}
+      </div>
+
+      <div className="home-main flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <section className="home-actions px-16 pb-8">
         <h2 className="mb-6 text-2xl font-semibold text-slate-300">{t('home.quickActions')}</h2>
         <div
           className={`grid gap-6 ${
@@ -559,7 +693,7 @@ export function HomePage(): ReactNode {
               focusId={`menu-${item.id}`}
               focusGroup="home-menu"
               focusPriority={10 - index}
-              className="h-48"
+              className="home-action-card h-48"
               onClick={() => handleMenuAction(item)}
             >
               <Card
@@ -574,15 +708,8 @@ export function HomePage(): ReactNode {
         </div>
       </section>
 
-      {licenseChecked && STORE_BUILD && !licenseSnapshot && (
-        <section className="mx-16 mb-6 rounded-2xl border border-surface-600 bg-surface-900/80 px-8 py-5">
-          <p className="text-xl font-semibold text-white">{t('home.licenseRequired')}</p>
-          <p className="mt-1 text-base text-slate-400">{t('home.licenseRequiredHint')}</p>
-        </section>
-      )}
-
       {recentPlaylists.length > 0 && (!STORE_BUILD || Boolean(licenseSnapshot)) && (
-        <section className="flex-1 px-16 pb-12">
+        <section className="home-recent flex-1 px-16 pb-12">
           <h2 className="mb-6 text-2xl font-semibold text-slate-300">{t('home.recent')}</h2>
           <div className="flex gap-6 overflow-x-auto pb-4">
             {recentPlaylists.map((entry, index) => (
@@ -591,7 +718,7 @@ export function HomePage(): ReactNode {
                 focusId={`recent-${entry.id}`}
                 focusGroup="home-recent"
                 focusPriority={5 - index}
-                className="h-40 w-72 shrink-0"
+                className="home-recent-card h-40 w-72 shrink-0"
                 onClick={() => void handleRecentSelect(entry.id)}
               >
                 <Card
@@ -606,10 +733,16 @@ export function HomePage(): ReactNode {
           </div>
         </section>
       )}
+      </div>
+    </div>
+  );
 
+  return (
+    <>
+      {homeBody}
       {urlDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="w-[720px] rounded-2xl bg-surface-800 p-8">
+          <div className="url-dialog-panel w-[720px] rounded-2xl bg-surface-800 p-8">
             <h3 className="mb-4 text-3xl font-semibold text-white">{t('url.title')}</h3>
             <input
               type="url"
@@ -652,7 +785,7 @@ export function HomePage(): ReactNode {
 
       {activateDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="w-[760px] rounded-2xl bg-surface-800 p-8">
+          <div className="activate-dialog-panel w-[760px] rounded-2xl bg-surface-800 p-8">
             <h3 className="mb-2 text-3xl font-semibold text-white">{t('activate.title')}</h3>
             <p className="mb-6 text-lg text-slate-400">
               {t('activate.hint')}{' '}
@@ -703,6 +836,6 @@ export function HomePage(): ReactNode {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

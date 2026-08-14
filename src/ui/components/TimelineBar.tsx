@@ -48,7 +48,7 @@ export function TimelineBar({
   );
 
   return (
-    <div className="w-full px-12">
+    <div className="timeline-bar w-full px-12">
       <div className="mb-4 flex items-center justify-between text-base text-slate-300">
         <span className="tabular-nums tracking-wide">{formatTime(safeCurrent)}</span>
         {seekable && safeDuration > 0 ? (

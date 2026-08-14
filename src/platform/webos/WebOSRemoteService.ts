@@ -1,4 +1,5 @@
 import type { RemoteKey, RemoteService } from '../interfaces';
+import { isTextEntryTypingKey, isTypingInField } from '../textEntry';
 
 const WEBOS_KEY_MAP: Readonly<Record<number, RemoteKey>> = {
   38: 'ArrowUp',
@@ -19,6 +20,10 @@ export class WebOSRemoteService implements RemoteService {
     const listener = (event: KeyboardEvent): void => {
       const key = this.mapKeyCode(event.keyCode);
       if (!key) return;
+
+      if (isTypingInField(event) && isTextEntryTypingKey(event)) {
+        return;
+      }
 
       event.preventDefault();
       event.stopPropagation();

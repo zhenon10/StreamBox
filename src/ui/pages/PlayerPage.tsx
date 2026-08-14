@@ -27,7 +27,8 @@ import { usePlaylistStore, usePlayerStore } from '@/application/stores/playlistS
 import { channelSession } from '@/application/channels/ChannelSessionStore';
 import { classifyChannel } from '@/domain/content/contentSection';
 import { repositories, platform, services, TOKENS } from '@/application/di/container';
-import { isWebOS } from '@/platform/detectPlatform';
+import { isTouchUi, isTvUi, isWebOS } from '@/platform/detectPlatform';
+import { isTextEntryTypingKey, isTypingInField } from '@/platform/textEntry';
 import { useRequireLicense } from '@/ui/hooks/useRequireLicense';
 import {
   PlaybackController,
@@ -48,9 +49,10 @@ const FIT_KEYS: Record<ObjectFit, MessageKey> = {
   cover: 'player.fitCover',
   fill: 'player.fitFill',
 };
-/** Browser: auto-hide quickly. webOS TV: hide sooner while playing so video plane is visible. */
-const OVERLAY_HIDE_MS = isWebOS() ? 3_000 : 6_000;
-const TV_UI = isWebOS();
+/** Phone/desktop: hide chrome after 5s. TV: hide sooner while playing so the video plane is visible. */
+function overlayHideMs(): number {
+  return isTvUi() ? 3_000 : 5_000;
+}
 
 function delayMs(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -113,13 +115,12 @@ export function PlayerPage(): ReactNode {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     hideTimerRef.current = setTimeout(() => {
       const state = usePlayerStore.getState().playbackState;
+      if (state === 'error') return;
       // On TV keep chrome while paused / buffering so remote users aren't stranded.
-      if (TV_UI && state !== 'playing') return;
-      if (state === 'playing') {
-        setShowOverlay(false);
-        setShowInfo(false);
-      }
-    }, OVERLAY_HIDE_MS);
+      if (isTvUi() && state !== 'playing') return;
+      setShowOverlay(false);
+      setShowInfo(false);
+    }, overlayHideMs());
   }, [setShowOverlay]);
 
   const handleSeek = useCallback(
@@ -389,6 +390,7 @@ export function PlayerPage(): ReactNode {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (!controllerRef.current) return;
+      if (isTypingInField(e) && isTextEntryTypingKey(e)) return;
       bumpOverlay();
 
       switch (e.key) {
@@ -473,14 +475,20 @@ export function PlayerPage(): ReactNode {
   if (licenseChecking || !licensed) return null;
   if (!channel) return null;
 
-  const btnSize = TV_UI ? 'h-16 w-16' : 'h-14 w-14';
-  const iconSize = TV_UI ? 'h-8 w-8' : 'h-7 w-7';
+  const tvUi = isTvUi();
+  const phone = isTouchUi();
+  const btnSize = tvUi ? 'h-16 w-16' : phone ? 'phone-ctrl' : 'h-14 w-14';
+  const iconSize = tvUi ? 'h-8 w-8' : phone ? 'phone-ctrl-icon' : 'h-7 w-7';
+  const playSize = tvUi ? 'h-20 w-20' : phone ? 'phone-ctrl-play' : 'h-16 w-16';
+  const seekIcon = tvUi ? 'h-12 w-12' : phone ? 'phone-ctrl-icon' : 'h-11 w-11';
+  const playIcon = tvUi ? 'h-10 w-10' : phone ? 'phone-ctrl-icon' : 'h-9 w-9';
 
   return (
     <div
       ref={rootRef}
-      className="fixed inset-0 z-0 bg-black"
-      onMouseMove={bumpOverlay}
+      className="player-shell fixed inset-0 z-0 bg-black"
+      onMouseMove={phone ? undefined : bumpOverlay}
+      onTouchStart={bumpOverlay}
       onClick={() => {
         if (!showOverlay) bumpOverlay();
       }}
@@ -501,14 +509,14 @@ export function PlayerPage(): ReactNode {
       />
 
       {showOverlay && (
-        <div className="pointer-events-none absolute top-0 right-0 bottom-0 left-0 z-20 flex flex-col">
+        <div className="pointer-events-none absolute top-0 right-0 bottom-0 left-0 z-20 flex min-h-0 min-w-0 flex-col overflow-hidden">
           {/* Top chrome only — do NOT paint a full-screen dimmer over the video plane. */}
           <header
-            className="pointer-events-auto flex shrink-0 items-start justify-between gap-6 px-14 pt-10 pb-4"
+            className="player-chrome pointer-events-auto flex min-w-0 shrink-0 items-center justify-between gap-6 overflow-hidden px-14 pt-10 pb-4"
             style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.85), rgba(0,0,0,0))' }}
           >
             <div className="flex min-w-0 items-center gap-6">
-              <ChannelLogo name={channel.name} logoUrl={channel.logoUrl} size="lg" />
+              <ChannelLogo name={channel.name} logoUrl={channel.logoUrl} size={phone ? 'sm' : 'lg'} />
               <div className="min-w-0">
                 <h1 className="truncate text-4xl font-bold text-white">{channel.name}</h1>
                 <p className="mt-1 truncate text-xl text-slate-300">{channel.group}</p>
@@ -518,7 +526,7 @@ export function PlayerPage(): ReactNode {
           </header>
 
           {showInfo && (
-            <div className="pointer-events-auto mx-14 mt-2 max-w-3xl rounded-2xl bg-black/70 px-6 py-5">
+            <div className="pointer-events-auto player-info-panel mx-14 mt-2 max-w-3xl rounded-2xl bg-black/70 px-6 py-5">
               <p className="text-lg text-slate-200">
                 <span className="text-slate-400">{t('player.type')}:</span>{' '}
                 {contentKind === 'live'
@@ -556,7 +564,7 @@ export function PlayerPage(): ReactNode {
           <div className="flex-1" />
 
           <footer
-            className="pointer-events-auto shrink-0 px-10 pb-10 pt-4"
+            className="player-chrome pointer-events-auto shrink-0 px-10 pb-10 pt-4"
             style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0))' }}
           >
             <TimelineBar
@@ -570,8 +578,8 @@ export function PlayerPage(): ReactNode {
               showTransport={false}
             />
 
-            {/* Primary transport — same actions as web, TV-sized */}
-            <div className="mt-5 flex items-center justify-center gap-5">
+            {/* Primary transport */}
+            <div className="player-transport mt-5 flex items-center justify-center gap-5">
               <IconButton
                 focusId="player-ch-prev"
                 label={t('player.prevChannel')}
@@ -590,7 +598,7 @@ export function PlayerPage(): ReactNode {
                   size={btnSize}
                   onClick={() => handleSkip(-30)}
                 >
-                  <IconRewind30 className={TV_UI ? 'h-12 w-12' : 'h-11 w-11'} />
+                  <IconRewind30 className={seekIcon} />
                 </IconButton>
               )}
 
@@ -604,16 +612,16 @@ export function PlayerPage(): ReactNode {
                       : t('player.play')
                 }
                 priority={10}
-                size={TV_UI ? 'h-20 w-20' : 'h-16 w-16'}
+                size={playSize}
                 accent
                 onClick={handlePlayPause}
               >
                 {isBuffering ? (
-                  <span className="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white" />
+                  <span className={`${phone ? 'h-4 w-4 border-2' : 'h-8 w-8 border-4'} animate-spin rounded-full border-white/30 border-t-white`} />
                 ) : isPlaying ? (
-                  <IconPause className={TV_UI ? 'h-10 w-10' : 'h-9 w-9'} />
+                  <IconPause className={playIcon} />
                 ) : (
-                  <IconPlay className={`${TV_UI ? 'h-10 w-10' : 'h-9 w-9'} translate-x-0.5`} />
+                  <IconPlay className={`${playIcon} translate-x-0.5`} />
                 )}
               </IconButton>
 
@@ -625,7 +633,7 @@ export function PlayerPage(): ReactNode {
                   size={btnSize}
                   onClick={() => handleSkip(30)}
                 >
-                  <IconForward30 className={TV_UI ? 'h-12 w-12' : 'h-11 w-11'} />
+                  <IconForward30 className={seekIcon} />
                 </IconButton>
               )}
 
@@ -639,19 +647,22 @@ export function PlayerPage(): ReactNode {
                 <IconChannelDown className={iconSize} />
               </IconButton>
 
+              {!phone && (
               <IconButton
                 focusId="player-stop"
                 label={t('player.stop')}
                 priority={8}
                 size={btnSize}
+                className="player-stop-btn"
                 onClick={handleStop}
               >
                 <IconStop className={iconSize} />
               </IconButton>
+              )}
             </div>
 
             {/* Secondary toolbar */}
-            <div className="mt-5 flex items-center justify-between gap-4">
+            <div className="player-toolbar mt-5 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <IconButton
                   focusId="player-back"
@@ -674,6 +685,7 @@ export function PlayerPage(): ReactNode {
                   <IconStar filled={isFavorite} className={iconSize} />
                 </IconButton>
 
+                {!phone && (
                 <IconButton
                   focusId="player-info"
                   label={t('player.info')}
@@ -687,6 +699,7 @@ export function PlayerPage(): ReactNode {
                 >
                   <IconInfo className={iconSize} />
                 </IconButton>
+                )}
               </div>
 
               <div className="flex items-center gap-3">
@@ -704,8 +717,8 @@ export function PlayerPage(): ReactNode {
                   )}
                 </IconButton>
 
-                {!TV_UI && (
-                  <div className="flex w-40 items-center gap-2">
+                {!tvUi && !phone && (
+                  <div className="player-volume-slider flex w-40 items-center gap-2">
                     <input
                       type="range"
                       min={0}
@@ -721,6 +734,7 @@ export function PlayerPage(): ReactNode {
                   </div>
                 )}
 
+                {!phone && (
                 <IconButton
                   focusId="player-vol-down"
                   label={t('player.volumeDown')}
@@ -730,9 +744,11 @@ export function PlayerPage(): ReactNode {
                 >
                   <span className="text-2xl font-bold leading-none">−</span>
                 </IconButton>
-                <span className="w-10 text-center text-lg tabular-nums text-slate-300">
+                )}
+                <span className="player-vol-num w-10 text-center text-lg tabular-nums text-slate-300">
                   {muted ? 0 : volume}
                 </span>
+                {!phone && (
                 <IconButton
                   focusId="player-vol-up"
                   label={t('player.volumeUp')}
@@ -742,6 +758,7 @@ export function PlayerPage(): ReactNode {
                 >
                   <span className="text-2xl font-bold leading-none">+</span>
                 </IconButton>
+                )}
 
                 <IconButton
                   focusId="player-aspect"
@@ -753,7 +770,8 @@ export function PlayerPage(): ReactNode {
                   <IconAspect className={iconSize} />
                 </IconButton>
 
-                {!TV_UI && (
+                {!tvUi && !phone && (
+                  <span className="player-fs-wrap">
                   <IconButton
                     focusId="player-fullscreen"
                     label={isFullscreen ? t('player.fullscreenExit') : t('player.fullscreen')}
@@ -768,8 +786,10 @@ export function PlayerPage(): ReactNode {
                       <IconFullscreen className={iconSize} />
                     )}
                   </IconButton>
+                  </span>
                 )}
 
+                {!phone && (
                 <IconButton
                   focusId="player-toggle-overlay"
                   label={t('player.hideControls')}
@@ -779,10 +799,11 @@ export function PlayerPage(): ReactNode {
                 >
                   <IconEyeOff className={iconSize} />
                 </IconButton>
+                )}
               </div>
             </div>
 
-            <p className="mt-3 text-center text-sm text-slate-400">
+            <p className="player-hint mt-3 text-center text-sm text-slate-400">
               {t(FIT_KEYS[objectFit])}
               {contentKind === 'live' ? t('player.hintLive') : t('player.hintVod')}
             </p>
@@ -811,6 +832,7 @@ function IconButton({
   active = false,
   size = 'h-14 w-14',
   accent = false,
+  className = '',
 }: {
   focusId: string;
   label: string;
@@ -820,6 +842,7 @@ function IconButton({
   active?: boolean;
   size?: string;
   accent?: boolean;
+  className?: string;
 }): ReactNode {
   return (
     <Focusable
@@ -829,6 +852,7 @@ function IconButton({
       onClick={onClick}
       aria-label={label}
       title={label}
+      className={className}
     >
       <span
         className={`flex items-center justify-center rounded-full text-white transition-colors [.focused_&]:bg-accent-500 hover:bg-white/20 ${size} ${
@@ -869,7 +893,7 @@ function StatusBadge({ state }: { state: string }): ReactNode {
 
   return (
     <span
-      className={`shrink-0 rounded-full px-6 py-2 text-lg font-medium ${colors[state] ?? colors.idle}`}
+      className={`player-status shrink-0 rounded-full px-6 py-2 text-lg font-medium ${colors[state] ?? colors.idle}`}
     >
       {labelKeys[state] ? t(labelKeys[state]) : state}
     </span>

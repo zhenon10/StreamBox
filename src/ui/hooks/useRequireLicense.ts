@@ -4,7 +4,6 @@ import { platform, services, TOKENS } from '@/application/di/container';
 import { validateStoredLicense } from '@/application/usecases/licenseUseCases';
 import { playlistRequiresLicense } from '@/domain/license/storeBuild';
 import type { LicenseSnapshot } from '@/domain/license/types';
-import { usePlaylistStore } from '@/application/stores/playlistStore';
 
 /**
  * Blocks playlist routes in store builds until a license is validated.
@@ -21,7 +20,6 @@ export function useRequireLicense(options?: {
   const enforce = options?.enforce ?? playlistRequiresLicense();
   const redirectTo = options?.redirectTo ?? '/';
   const navigate = useNavigate();
-  const setCurrentPlaylist = usePlaylistStore((s) => s.setCurrentPlaylist);
   const [checking, setChecking] = useState(enforce);
   const [snapshot, setSnapshot] = useState<LicenseSnapshot | null>(null);
 
@@ -42,10 +40,18 @@ export function useRequireLicense(options?: {
       });
       if (cancelled) return;
       if (!result.ok) {
-        setSnapshot(null);
-        setCurrentPlaylist(null);
+        const cachedOk =
+          result.error === 'network' &&
+          result.snapshot != null &&
+          result.snapshot.expiresAt > Date.now();
+        if (!cachedOk) {
+          setSnapshot(null);
+          setChecking(false);
+          navigate(redirectTo, { replace: true });
+          return;
+        }
+        setSnapshot(result.snapshot);
         setChecking(false);
-        navigate(redirectTo, { replace: true });
         return;
       }
       setSnapshot(result.snapshot);
@@ -55,7 +61,7 @@ export function useRequireLicense(options?: {
     return () => {
       cancelled = true;
     };
-  }, [enforce, navigate, redirectTo, setCurrentPlaylist]);
+  }, [enforce, navigate, redirectTo]);
 
   return {
     checking,

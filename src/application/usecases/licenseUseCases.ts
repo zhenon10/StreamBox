@@ -84,6 +84,9 @@ export async function validateStoredLicense(
   );
 
   if (!result.ok) {
+    if (result.error === 'network' && snapshot.expiresAt > Date.now()) {
+      return { ok: true, snapshot };
+    }
     if (result.error === 'expired' || result.error === 'not_found' || result.error === 'device_mismatch') {
       await licenseStore.clear();
     }

@@ -22,11 +22,15 @@ function AppRoutes(): ReactNode {
   const navigate = useNavigate();
 
   const handleBack = useCallback(() => {
+    const basename = routerBasename();
+    const path = window.location.pathname;
+    const atHome = path === basename || path === `${basename}/` || path === '/';
+    if (atHome) return;
     if (window.history.length > 1) {
       navigate(-1);
-    } else {
-      navigate('/');
+      return;
     }
+    navigate('/');
   }, [navigate]);
 
   return (

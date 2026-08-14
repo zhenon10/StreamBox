@@ -1,0 +1,98 @@
+{
+  "title": "IvPlayer",
+  "date": "2026 / 08 / 14",
+  "version": "1.0.0",
+  "developer": "Name: Mehmet Burak Fırat\rE-mail address: destek@ivplayer.tr",
+  "historyDate": "14.08.2026",
+  "historyFile": "IvPlayer-UX-Scenario-4.4.ppt",
+  "historyContents": "Initial document for IvPlayer 1.0.0",
+  "basic": [
+    "IvPlayer",
+    "Entertainment",
+    "Web",
+    "1920*1080",
+    "TR",
+    "Turkish, English",
+    "No",
+    "webOS (6.0.0)",
+    "Not Applicable",
+    "Transaction / Subscription",
+    "N/A (not a game). BGM: No. Sound Effect: No.",
+    "https://ivplayer.tr",
+    "N/A — packaged IPK in Seller Lounge (com.ivplayer.iptv_1.0.0_all.ipk)",
+    "webOS"
+  ],
+  "guidelineTitle": "1. Numbering guideline (keep as reference)",
+  "guidelineDetail": "Detailed Information\rIvPlayer screens start on the next slides (Login / Start / Home / Channels / Player).\rUI language on TV is Turkish by default. English labels are in Settings → Dil.\rReplace sample images with 1920x1080 screenshots of IvPlayer before final submit if still showing template artwork.",
+  "loginDesc": [
+    ["1", "No ID field. IvPlayer has no member login."],
+    ["2", "No password field."],
+    ["1", "N/A — no ID / password accounts"],
+    ["2", "N/A"],
+    ["3", "N/A"],
+    ["1", "LGQAIVPLAYER01  (max 20 QA devices)"],
+    ["2", "If limit is reached: email the on-screen Device Code to destek@ivplayer.tr"],
+    ["3", "Then press Lisansı kontrol et on Home"]
+  ],
+  "loginDetail": "Detailed Information\rIvPlayer has NO user ID/password.\rAccess is a device-bound SOFTWARE PLAYER LICENSE. The app does not sell TV channels, IPTV subscriptions, or channel packages.\r\rQA method A (recommended):\r1) Home → Kodum var\r2) Enter activation code LGQAIVPLAYER01\r3) OK / Aktive et\rThe same code may be used on up to 20 QA devices.\r\rQA method B:\r1) Read 12-character Cihaz kodu on Home (XXXX-XXXX-XXXX)\r2) Email destek@ivplayer.tr\r3) Seller binds a test license to that device\r4) Home → Lisansı kontrol et\r\rDo NOT complete a real payment on the website during QA.",
+  "startTitle": "1. Start Page (Splash)",
+  "startDesc": [
+    ["1", "Splash / app title IvPlayer (auto, ~1–2 seconds)"],
+    ["2", "No Start button. App goes to Home automatically."],
+    ["3", "Back during splash: may exit to TV Launcher"]
+  ],
+  "startDetail": "Detailed Information\rCold start: LG splashBackground (webos/splash.png) then Home.\rThere is no separate Start CTA.\rhandlesRelaunch is true: re-open from Recent Apps restores the app without a permanent black screen.",
+  "homeTitle": "2. Main Page (Home)",
+  "homeDesc": [
+    ["1", "Title: IvPlayer. Tagline: Smart TV için Premium Medya Oynatıcı"],
+    ["2", "Cihaz kodu (12-char device code XXXX-XXXX-XXXX) — use this for website purchase / QA bind"],
+    ["3", "Siteden satın al / ivplayer.tr/activation.html (opens buy page if browser allowed; URL is always shown)"],
+    ["4", "Lisansı kontrol et — claim license after website bind"],
+    ["5", "Kodum var — enter reseller / QA activation code"],
+    ["6", "Ayarlar — Settings (always visible)"],
+    ["7", "After license only: Playlist URL aç, M3U dosyası aç, Favoriler, Geçmiş"],
+    ["8", "Back on Home: exit to TV Launcher"]
+  ],
+  "homeDetail": "Detailed Information\rSTORE BUILD: until licensed, Open URL / Open File / Favorites / History / recent playlists are HIDDEN.\rVisible when unlicensed: device code, Lisansı kontrol et, Kodum var, Ayarlar.\rAfter license: license plan + expiry appear. User loads their OWN M3U/M3U8 (no channels are bundled).\rInvalid code → Turkish error, stay on dialog.\rNetwork error → friendly message, no crash.",
+  "flowTitle": "1. Flow Chart",
+  "flowDetail": "Detailed Information\rLauncher → Splash → Home (unlicensed)\rHome → Kodum var (code) OR Lisansı kontrol et (after bind) → Home (licensed)\rLicensed Home → Playlist URL aç OR M3U dosyası aç → Categories → Channel list → Player\rPlayer Back → Channel list → Categories / Home\rHome → Ayarlar → Back → Home\rHome → Favoriler / Geçmiş (licensed + playlist loaded)\r\rRemote: D-pad moves focus, OK activates, Back goes one screen back.\rMagic Remote pointer is optional; D-pad is primary.",
+  "channelsTitle": "2. Sub Menu (Categories / Channels)",
+  "channelsDesc": [
+    ["1", "← Ana Sayfa / ← Tüm kategoriler / Back — return to previous screen"],
+    ["2", "Category tiles (Canlı TV / Filmler / Diziler) then channel list"],
+    ["3", "Ara — search channels"],
+    ["4", "OK on a channel — open Player"],
+    ["5", "Large playlists: wait for category grid (Hazırlanıyor…)"]
+  ],
+  "channelsDetail": "Detailed Information\rContent comes only from the user-supplied M3U/M3U8. IvPlayer does not provide a channel pack.\rIf no playlist is loaded, this screen is not reachable.\rSearch: type on screen keyboard if shown, or filter list.\rBack from channel list returns to categories, then Home.",
+  "playerTitle": "3. Sub Page (Player)",
+  "playerDesc": [
+    ["1", "Back / Geri — return to channel list (does not exit the app)"],
+    ["2", "OK — play/pause or show/hide controls"],
+    ["3", "↑ / ↓ or Ch± — previous / next channel"],
+    ["4", "← / → — seek 30s (VOD only; live has no seek)"],
+    ["5", "On-screen: Oynat/Duraklat, Durdur, Favori, Ses, Görüntü, Tam ekran"]
+  ],
+  "playerDetail": "Detailed Information\rPlayback quality depends on the user's stream URL, not on bundled TV content.\rOn error: show message + Yeniden dene. No white/black crash screen.\rBack from Player → channel list. Back again → categories/Home.\rDo not treat a failed third-party stream as an app crash if the UI remains usable.",
+  "paidDesc": [
+    ["1", "No in-app payment UI. This screen does not exist in the app."],
+    ["2", "Payment is on the website only: https://ivplayer.tr/activation.html (PayTR)."],
+    ["3", "Sold item: IvPlayer software license (1 year or lifetime). NOT IPTV / channels."],
+    ["4", "QA must NOT pay. Use activation code LGQAIVPLAYER01 (Home → Kodum var)."],
+    ["1", "N/A — no in-app credit card form"],
+    ["2", "N/A"],
+    ["1", "N/A — no in-app voucher field"],
+    ["2", "Use LGQAIVPLAYER01 instead"],
+    ["3", "Or bind the on-screen Device Code via destek@ivplayer.tr"]
+  ],
+  "paidDetail": "Detailed Information\rPaid content is OUTSIDE the app (LG UX note 6): website checkout via PayTR.\rPlans: 1-year software license and lifetime software license.\rIvPlayer does not provide TV channels, IPTV subscriptions, or channel packages.\rLG QA: do not use real cards. Do not require testers to purchase.\rAfter QA license: load any authorized test M3U/M3U8 with Playlist URL aç.",
+  "adBannerTitle": "1. Banner Type — Not Applicable",
+  "adBannerDesc": [
+    ["1", "Page: none — IvPlayer has no in-app ads"],
+    ["1", "Location: none"]
+  ],
+  "adBannerDetail": "Detailed Information\rIn-App Ad = Not Applicable. No banner, no third-party ad SDK.",
+  "adVideoTitle": "2. Video Type — Not Applicable",
+  "adVideoDetail": "Detailed Information\rNo AVOD / preroll / midroll ads. Player only plays the user playlist stream.",
+  "appendix": "If you have anything to let the LG QA Management know, please comment here.\r\r1. Product positioning: IvPlayer is a free LG webOS media player. It does not provide any TV channels, IPTV subscription, or channel package. Users play their own authorized M3U/M3U8 playlist after a software license.\r\r2. QA login: no ID/PW. Home → Kodum var → LGQAIVPLAYER01 (up to 20 devices). Or email the Home device code to destek@ivplayer.tr and press Lisansı kontrol et after bind.\r\r3. After license: Playlist URL aç → paste a legal test M3U/M3U8. Do not expect built-in channels.\r\r4. Remote: D-pad + OK + Back. Player: OK controls, Up/Down channel, Left/Right seek (VOD), Back to list.\r\r5. Unlicensed Home hides URL/file pickers. That is intended (store build).\r\r6. Support: destek@ivplayer.tr · https://ivplayer.tr/support.html · Privacy: https://ivplayer.tr/privacy.html\r\r7. Please ignore template sample artwork if still visible; use IvPlayer screenshots (1920x1080) in Seller Lounge Images as well."
+}

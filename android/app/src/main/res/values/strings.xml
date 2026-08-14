@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">IvPlayer</string>
+    <string name="title_activity_main">IvPlayer</string>
+    <string name="package_name">tr.ivplayer.android</string>
+    <string name="custom_url_scheme">tr.ivplayer.android</string>
+</resources>

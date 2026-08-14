@@ -13,13 +13,13 @@ export function catalogFromEnv() {
       [PLAN_ONE_YEAR]: {
         id: PLAN_ONE_YEAR,
         title: '1 Yıl',
-        productName: 'IvPlayer LG webOS Medya Oynatıcı Lisansı — 1 Yıl',
+        productName: 'IvPlayer Medya Oynatıcı Lisansı — 1 Yıl',
         amount: parseKurus(process.env.IVPLAYER_ONE_YEAR_PRICE, 29900),
       },
       [PLAN_LIFETIME]: {
         id: PLAN_LIFETIME,
         title: 'Ömür Boyu',
-        productName: 'IvPlayer LG webOS Medya Oynatıcı Lisansı — Ömür Boyu',
+        productName: 'IvPlayer Medya Oynatıcı Lisansı — Ömür Boyu',
         amount: parseKurus(process.env.IVPLAYER_LIFETIME_PRICE, 79900),
       },
     },

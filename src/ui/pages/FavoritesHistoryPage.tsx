@@ -34,7 +34,7 @@ export function FavoritesPage(): ReactNode {
   if (licenseChecking || !licensed) return null;
 
   return (
-    <div className="flex h-full flex-col bg-surface-950">
+    <div className="app-scroll list-page flex h-full flex-col bg-surface-950">
       <header className="flex items-center justify-between border-b border-surface-800 px-16 py-10">
         <div>
           <h1 className="text-4xl font-bold text-white">{t('favorites.title')}</h1>
@@ -100,7 +100,7 @@ export function HistoryPage(): ReactNode {
   if (licenseChecking || !licensed) return null;
 
   return (
-    <div className="flex h-full flex-col bg-surface-950">
+    <div className="app-scroll list-page flex h-full flex-col bg-surface-950">
       <header className="flex items-center justify-between border-b border-surface-800 px-16 py-10">
         <div>
           <h1 className="text-4xl font-bold text-white">{t('history.title')}</h1>

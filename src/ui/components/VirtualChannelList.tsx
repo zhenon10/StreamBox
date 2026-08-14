@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { Channel } from '@/domain/entities';
+import { isTouchUi } from '@/platform/detectPlatform';
 import { Focusable } from './Focusable';
 import { ChannelLogo } from './ChannelLogo';
 
@@ -12,6 +13,8 @@ interface VirtualChannelListProps {
   readonly favorites?: readonly string[];
   readonly showNumbers?: boolean;
   readonly focusGroup?: string;
+  readonly onFocusChannel?: (channel: Channel) => void;
+  readonly density?: 'default' | 'compact';
 }
 
 /**
@@ -25,6 +28,8 @@ export function VirtualChannelList({
   favorites = [],
   showNumbers = true,
   focusGroup = 'channels',
+  onFocusChannel,
+  density = 'default',
 }: VirtualChannelListProps): ReactNode {
   const [page, setPage] = useState(0);
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
@@ -46,6 +51,7 @@ export function VirtualChannelList({
   }, [totalPages]);
 
   const favoriteSet = favorites.length > 0 ? new Set(favorites) : null;
+  const phone = isTouchUi();
 
   const rows: ReactNode[] = [];
   for (let i = start; i < end; i++) {
@@ -58,19 +64,20 @@ export function VirtualChannelList({
         key={`${channel.id}-${String(i)}`}
         focusId={`channel-row-${String(i)}`}
         focusGroup={focusGroup}
-        className="mb-2 block h-20 w-full"
+        className={`channel-row mb-2 block w-full ${density === 'compact' ? 'h-14' : 'h-20'}`}
         onClick={() => onSelect(channel)}
+        onFocus={() => onFocusChannel?.(channel)}
       >
-        <div className="flex h-full items-center gap-5 rounded-2xl bg-surface-900/60 px-5 transition-colors [.focused_&]:bg-accent-500 hover:bg-surface-800">
+        <div className="channel-row-inner flex h-full items-center gap-5 rounded-2xl bg-surface-900/60 px-5 transition-colors [.focused_&]:bg-accent-500 hover:bg-surface-800">
           {showNumbers && (
-            <span className="w-14 text-right text-xl tabular-nums text-slate-500 [.focused_&]:text-white/70">
+            <span className="channel-row-num w-14 text-right text-xl tabular-nums text-slate-500 [.focused_&]:text-white/70">
               {String(i + 1)}
             </span>
           )}
           <ChannelLogo
             name={channel.name}
             logoUrl={showRemoteLogos ? channel.logoUrl : null}
-            size="md"
+            size={phone || density === 'compact' ? 'xs' : 'md'}
           />
           <div className="min-w-0 flex-1">
             <p className="truncate text-2xl font-semibold text-white">{channel.name}</p>
@@ -83,11 +90,11 @@ export function VirtualChannelList({
   }
 
   return (
-    <div className="flex h-full flex-col px-2">
-      <div className="scrollbar-hidden flex-1 overflow-y-auto">{rows}</div>
+    <div className="flex h-full min-h-0 min-w-0 flex-col px-2">
+      <div className="scrollbar-hidden min-h-0 flex-1 overflow-y-scroll">{rows}</div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between gap-4 border-t border-surface-800 px-4 py-4">
+        <div className="channel-pager flex items-center justify-between gap-4 border-t border-surface-800 px-4 py-4">
           <Focusable
             focusId="channel-page-prev"
             focusGroup={`${focusGroup}-pager`}

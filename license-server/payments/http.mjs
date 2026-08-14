@@ -82,7 +82,7 @@ export async function handlePaymentHttp(req, res, url, deps) {
     json(res, 200, {
       ok: true,
       currency: catalog.currency,
-      productName: 'IvPlayer LG webOS Medya Oynatıcı Lisansı',
+      productName: 'IvPlayer Medya Oynatıcı Lisansı',
       disclaimer:
         'IvPlayer herhangi bir TV kanalı, yayın listesi veya medya içeriği sağlamaz. Kullanıcı kendi yetkili olduğu M3U/playlist kaynaklarını kullanır.',
       plans: Object.values(catalog.plans).map((p) => ({
@@ -206,7 +206,7 @@ export async function handlePaymentHttp(req, res, url, deps) {
         currency: order.currency,
         email: order.customerEmail,
         userIp: normalizeIp(ip),
-        basketTitle: 'IvPlayer LG webOS Medya Oynatici Lisansi',
+        basketTitle: 'IvPlayer Medya Oynatici Lisansi',
         okUrl,
         failUrl: okUrl,
         userName: 'IvPlayer Musteri',

@@ -1,0 +1,10 @@
+[[permission]]
+identifier = "allow-app-ipc"
+description = "Allow IvPlayer desktop IPC commands"
+commands.allow = [
+  "get_or_create_device_id",
+  "set_device_id",
+  "pick_m3u_file",
+  "set_keep_awake",
+  "exit_app"
+]

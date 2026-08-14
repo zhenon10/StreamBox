@@ -11,6 +11,7 @@ import {
 import { resolveFocusElement, type GraphDirection } from './NavigationGraph';
 import { services, TOKENS } from '@/application/di/container';
 import type { RemoteKey } from '@/platform/interfaces';
+import { isTextEntryTarget } from '@/platform/textEntry';
 
 interface FocusStackEntry {
   readonly routeKey: string;
@@ -127,6 +128,7 @@ export function NavigationProvider({
       }
 
       if (key === 'Back') {
+        if (isTextEntryTarget(document.activeElement)) return;
         onBack?.();
         return;
       }

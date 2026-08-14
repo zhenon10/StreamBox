@@ -1,5 +1,7 @@
 # UX scenario — IvPlayer (LG tester reference)
 
+**Seller Lounge file:** [IvPlayer-UX-Scenario-4.4.ppt](./IvPlayer-UX-Scenario-4.4.ppt) (official template 4.4, filled).
+
 **App ID:** `com.ivplayer.iptv`  
 **Title:** IvPlayer  
 **Type:** web app (FHD 1920×1080)  
@@ -7,7 +9,7 @@
 
 ## Purpose
 
-IvPlayer is a **free** media player for LG webOS (no channels included). Users buy a 1-year or lifetime **player license** on https://ivplayer.tr using the on-screen **device code**, then load their own M3U URL.
+IvPlayer is a **free** LG webOS media player. It does not provide TV channels, IPTV subscriptions, or channel packages. Users buy a 1-year or lifetime **player license** on https://ivplayer.tr using the on-screen **device code**, then load their own M3U/M3U8 playlist.
 
 Until licensed: Home shows device code, Check license, Settings. No playlist URL/file.
 

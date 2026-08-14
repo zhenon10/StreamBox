@@ -12,7 +12,32 @@ dist
 dist-ssr
 dist-simulator
 dist-web
+dist-windows
+dist-android
 *.local
+
+# Keystore / Play upload key (never commit)
+*.jks
+*.keystore
+android/keystore.properties
+!android/keystore.properties.example
+
+# Tauri / Android native build output
+src-tauri/target/
+src-tauri/gen/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/app/src/main/assets/public/
+android/capacitor-cordova-android-plugins/
+*.apk
+*.aab
+*.msi
+*.exe
+*.nsis
+!public-site/downloads/*.exe
+!public-site/downloads/*.apk
 
 # webOS build artifacts
 webos-build/
