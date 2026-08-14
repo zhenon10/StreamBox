@@ -22,7 +22,7 @@ import {
 } from '@/domain/content/contentSection';
 import type { Channel } from '@/domain/entities';
 import { useRequireLicense } from '@/ui/hooks/useRequireLicense';
-import { isAndroidUi } from '@/platform/detectPlatform';
+import { isShellUi } from '@/platform/detectPlatform';
 import { AndroidBrowseView } from '@/ui/android/AndroidBrowseView';
 import { useLocale, useT } from '@/i18n/useT';
 import type { MessageKey } from '@/i18n';
@@ -251,7 +251,7 @@ export function ChannelsPage(): ReactNode {
   ]);
 
   useEffect(() => {
-    if (!isAndroidUi()) return;
+    if (!isShellUi()) return;
     if (catalogLoading || searchQuery.trim() || activeCategory) return;
     const first = sectionCategories[0];
     if (first) setActiveCategory(first.name);
@@ -308,7 +308,7 @@ export function ChannelsPage(): ReactNode {
   const sectionMeta = SECTION_META[contentSection];
   const sectionHint = t(SECTION_HINT_KEY[contentSection]);
 
-  if (isAndroidUi()) {
+  if (isShellUi()) {
     const expiresLabel = licenseSnapshot
       ? new Date(licenseSnapshot.expiresAt).toLocaleDateString(numberLocale)
       : undefined;

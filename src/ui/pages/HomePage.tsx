@@ -24,7 +24,7 @@ import {
   getOrCreateDeviceId,
 } from '@/infrastructure/license/DeviceIdentity';
 import { isPlayStoreBuild, playlistRequiresLicense } from '@/domain/license/storeBuild';
-import { isAndroidUi } from '@/platform/detectPlatform';
+import { isShellUi } from '@/platform/detectPlatform';
 import { AndroidHomeLayout } from '@/ui/android/AndroidHomeLayout';
 import type { ContentSection } from '@/domain/content/contentSection';
 import type { PlaylistId } from '@/domain/entities';
@@ -536,9 +536,9 @@ export function HomePage(): ReactNode {
     navigate('/channels');
   };
 
-  const android = isAndroidUi();
+  const shell = isShellUi();
 
-  const homeBody = android ? (
+  const homeBody = shell ? (
     <AndroidHomeLayout
       deviceCode={deviceCode}
       licenseSnapshot={licenseSnapshot}

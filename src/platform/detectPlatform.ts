@@ -106,6 +106,11 @@ export function isAndroidUi(): boolean {
   return detectPlatformType() === 'android';
 }
 
+/** Landscape IvPlayer shell: Android, Windows, and web. LG webOS keeps 10-foot TV chrome. */
+export function isShellUi(): boolean {
+  return detectPlatformType() !== 'webos';
+}
+
 export function isDesktopUi(): boolean {
   const platform = detectPlatformType();
   return platform === 'windows' || platform === 'browser';

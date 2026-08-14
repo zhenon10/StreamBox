@@ -51,6 +51,7 @@ export {
   isTvUi,
   isTouchUi,
   isAndroidUi,
+  isShellUi,
   isDesktopUi,
   isAndroidTelevision,
   setAndroidTelevision,
