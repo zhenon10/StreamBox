@@ -226,6 +226,18 @@ export function formatPlaybackFailure(url: string, cause: string): string {
   return `Oynatma başarısız: ${cause}`;
 }
 
+/**
+ * True for failures worth a silent auto-retry (proxy hiccup, upstream timeout,
+ * transient network blip). False for codec/container failures where retrying
+ * the same URL will just fail again the same way.
+ */
+export function isTransientPlaybackFailure(message: string): boolean {
+  if (/desteklenmiyor|codec|decode|not supported|remux_unavailable/i.test(message)) {
+    return false;
+  }
+  return /timeout|zaman aşımı|network|ağ|proxy_failed|upstream|abort|bağlantı/i.test(message);
+}
+
 function stripQuery(url: string): string {
   const q = url.indexOf('?');
   return q === -1 ? url : url.slice(0, q);

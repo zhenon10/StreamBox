@@ -35,6 +35,7 @@ import {
   createPlaybackOptions,
 } from '@/application/services/PlaybackController';
 import { recordWatchHistory, toggleFavorite } from '@/application/usecases/playlistUseCases';
+import { isTransientPlaybackFailure } from '@/infrastructure/player/streamUrl';
 import { EventKind } from '@/domain/events/ApplicationEvent';
 import { MetricName } from '@/application/performance/PerformanceMonitor';
 import type { ChannelId } from '@/domain/entities';
@@ -327,32 +328,45 @@ export function PlayerPage(): ReactNode {
       });
       bumpOverlay();
 
-      try {
-        setPlaybackError(null);
-        await controller.play(found.url, found.id, found.name, {
-          isLive: classifyChannel(found) === 'live',
-        });
-        if (cancelled) return;
-        setPlaybackError(null);
-        perfMonitor.measure(MetricName.PlayerStartupLatency, 'player-start', 'ms');
-        await recordWatchHistory(
-          repositories.history,
-          {
-            channelId: found.id,
-            channelName: found.name,
-            playlistId: currentPlaylist.id,
-            watchedAt: Date.now(),
-          },
-          eventPublisher,
-        );
-      } catch (error) {
-        if (cancelled) return;
-        setPlaybackError({
-          code: 'PLAY_FAILED',
-          message: error instanceof Error ? error.message : 'Failed to start playback',
-          recoverable: true,
-        });
-        setPlaybackState('error');
+      const AUTO_RETRY_ATTEMPTS = 2; // silent retries for proxy/network hiccups only
+      let attempt = 0;
+      for (;;) {
+        try {
+          setPlaybackError(null);
+          await controller.play(found.url, found.id, found.name, {
+            isLive: classifyChannel(found) === 'live',
+          });
+          if (cancelled) return;
+          setPlaybackError(null);
+          perfMonitor.measure(MetricName.PlayerStartupLatency, 'player-start', 'ms');
+          await recordWatchHistory(
+            repositories.history,
+            {
+              channelId: found.id,
+              channelName: found.name,
+              playlistId: currentPlaylist.id,
+              watchedAt: Date.now(),
+            },
+            eventPublisher,
+          );
+          return;
+        } catch (error) {
+          if (cancelled) return;
+          const message = error instanceof Error ? error.message : 'Failed to start playback';
+          if (attempt < AUTO_RETRY_ATTEMPTS && isTransientPlaybackFailure(message)) {
+            attempt += 1;
+            await delayMs(700 * attempt);
+            if (cancelled) return;
+            continue;
+          }
+          setPlaybackError({
+            code: 'PLAY_FAILED',
+            message,
+            recoverable: true,
+          });
+          setPlaybackState('error');
+          return;
+        }
       }
     };
 
