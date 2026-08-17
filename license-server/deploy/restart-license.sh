@@ -2,6 +2,7 @@
 set -euo pipefail
 export NVM_DIR="$HOME/.nvm"
 . "$NVM_DIR/nvm.sh"
+export PATH="$HOME/bin:$PATH"
 ENV_FILE="$HOME/.config/ivplayer/license.env"
 set -a
 . "$ENV_FILE"

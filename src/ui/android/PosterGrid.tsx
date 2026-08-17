@@ -3,11 +3,18 @@ import type { Channel } from '@/domain/entities';
 import { Focusable } from '@/ui/components/Focusable';
 import { ChannelLogo } from '@/ui/components/ChannelLogo';
 
+export interface PosterCardModel {
+  readonly id: string;
+  readonly title: string;
+  readonly logoUrl: string | null;
+  readonly subtitle?: string | undefined;
+  readonly favorited?: boolean | undefined;
+}
+
 interface PosterGridProps {
   readonly count: number;
-  readonly getChannel: (index: number) => Channel | null;
-  readonly onSelect: (channel: Channel) => void;
-  readonly favorites?: readonly string[];
+  readonly getItem: (index: number) => PosterCardModel | null;
+  readonly onSelect: (index: number) => void;
   readonly focusGroup?: string;
 }
 
@@ -15,9 +22,8 @@ const PAGE = 40;
 
 export function PosterGrid({
   count,
-  getChannel,
+  getItem,
   onSelect,
-  favorites = [],
   focusGroup = 'posters',
 }: PosterGridProps): ReactNode {
   const [page, setPage] = useState(0);
@@ -25,7 +31,6 @@ export function PosterGrid({
   const safePage = Math.min(page, totalPages - 1);
   const start = safePage * PAGE;
   const end = Math.min(start + PAGE, count);
-  const fav = favorites.length > 0 ? new Set(favorites) : null;
 
   useEffect(() => {
     setPage(0);
@@ -41,25 +46,22 @@ export function PosterGrid({
 
   const cards: ReactNode[] = [];
   for (let i = start; i < end; i++) {
-    const channel = getChannel(i);
-    if (!channel) continue;
-    const year = yearFromName(channel.name);
+    const item = getItem(i);
+    if (!item) continue;
     cards.push(
       <Focusable
-        key={`${channel.id}-${String(i)}`}
+        key={`${item.id}-${String(i)}`}
         focusId={`poster-${String(i)}`}
         focusGroup={focusGroup}
         className="and-poster"
-        onClick={() => onSelect(channel)}
+        onClick={() => onSelect(i)}
       >
         <div className="and-poster-art">
-          <ChannelLogo name={channel.name} logoUrl={channel.logoUrl} size="poster" />
-          {fav?.has(channel.id) ? <span className="and-poster-heart">♡</span> : null}
+          <ChannelLogo name={item.title} logoUrl={item.logoUrl} size="poster" />
+          {item.favorited ? <span className="and-poster-heart">♡</span> : null}
         </div>
-        <p className="and-poster-title">
-          {channel.name}
-          {year ? ` (${year})` : ''}
-        </p>
+        <p className="and-poster-title">{item.title}</p>
+        {item.subtitle ? <p className="and-poster-sub">{item.subtitle}</p> : null}
       </Focusable>,
     );
   }
@@ -92,6 +94,21 @@ export function PosterGrid({
       )}
     </div>
   );
+}
+
+/** Adapter for flat movie / episode channel lists. */
+export function channelToPoster(
+  channel: Channel,
+  favorited: boolean,
+): PosterCardModel {
+  const year = yearFromName(channel.name);
+  return {
+    id: channel.id,
+    title: year ? `${channel.name}` : channel.name,
+    logoUrl: channel.logoUrl,
+    subtitle: year ? `(${year})` : undefined,
+    favorited,
+  };
 }
 
 function yearFromName(name: string): string | null {

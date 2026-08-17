@@ -5,7 +5,39 @@ export type StreamKind = 'hls' | 'mpegts' | 'native' | 'unknown';
 
 export type PlaybackEngine = 'hls' | 'mpegts' | 'native';
 
+const UNPLAYABLE_EXT = ['.mkv', '.avi', '.mpg', '.mpeg', '.mov', '.wmv', '.flv', '.m4v'] as const;
+
+export function isRemuxUrl(url: string): boolean {
+  return /\/v1\/stream-remux\b/i.test(url) || /\/api\/stream-remux\b/i.test(url);
+}
+
+export function needsContainerRemux(url: string): boolean {
+  const lower = stripQuery(url).toLowerCase();
+  return UNPLAYABLE_EXT.some((ext) => lower.endsWith(ext));
+}
+
+/**
+ * License API remux endpoint — ffmpeg -c copy → MPEG-TS for browser MSE.
+ */
+export function resolveRemuxFetchUrl(sourceUrl: string): string | null {
+  if (typeof window === 'undefined') return null;
+  if (!/^https?:\/\//i.test(sourceUrl)) return null;
+  if (isRemuxUrl(sourceUrl)) return null;
+
+  if (import.meta.env.DEV) {
+    return `/api/stream-remux?url=${encodeURIComponent(sourceUrl)}`;
+  }
+
+  const licenseBase = String(import.meta.env.VITE_LICENSE_API_URL ?? '')
+    .trim()
+    .replace(/\/$/, '');
+  if (!licenseBase || /YOUR-LICENSE/i.test(licenseBase)) return null;
+  return `${licenseBase}/v1/stream-remux?url=${encodeURIComponent(sourceUrl)}`;
+}
+
 export function detectStreamKind(url: string): StreamKind {
+  if (isRemuxUrl(url)) return 'mpegts';
+
   const path = stripQuery(url).toLowerCase();
 
   if (path.endsWith('.m3u8') || path.includes('/hls/') || path.includes('type=m3u8')) {
@@ -36,7 +68,7 @@ export function detectStreamKind(url: string): StreamKind {
   return 'unknown';
 }
 
-/** Live-only candidates — original first, optional HLS twin. No .mp4 probing. */
+/** Live-only candidates — original first, then Xtream /live/ + HLS twins. */
 export function buildLivePlaybackCandidates(url: string): string[] {
   const candidates: string[] = [];
   const push = (u: string): void => {
@@ -51,18 +83,40 @@ export function buildLivePlaybackCandidates(url: string): string[] {
   const stem = dot > slash ? bare.slice(0, dot) : bare;
 
   push(url);
+
+  // Short form http://host/user/pass/123 → expand to classic Xtream live paths.
+  const short = /^(https?:\/\/[^/?#]+)\/([^/?#]+)\/([^/?#]+)\/(\d+)\/?$/i.exec(bare);
+  if (short) {
+    const origin = short[1] ?? '';
+    const user = short[2] ?? '';
+    const pass = short[3] ?? '';
+    const id = short[4] ?? '';
+    push(`${origin}/live/${user}/${pass}/${id}`);
+    push(`${origin}/live/${user}/${pass}/${id}.m3u8`);
+    push(`${origin}/live/${user}/${pass}/${id}.ts`);
+  }
+
   if (lower.endsWith('.ts') || lower.endsWith('.m2ts')) {
     push(`${stem}.m3u8${query}`);
-  } else if (!lower.endsWith('.m3u8')) {
+  } else if (lower.endsWith('.m3u8')) {
+    push(`${stem}.ts${query}`);
+  } else if (!/\/live\//i.test(bare)) {
     push(`${bare}.m3u8${query}`);
     if (stem !== bare) push(`${stem}.m3u8${query}`);
+  } else if (!/\.(m3u8|ts|m2ts)$/i.test(lower)) {
+    push(`${bare}.m3u8${query}`);
+    push(`${bare}.ts${query}`);
   }
+
   return candidates;
 }
 
 /** Engines for forced live mode (even without /live/ in URL). */
-export function enginesForLive(): readonly PlaybackEngine[] {
-  // Match last working repo: mpegts MSE first for live Xtream.
+export function enginesForLive(url?: string): readonly PlaybackEngine[] {
+  if (url && (/\.m3u8(\?|$)/i.test(url) || /type=m3u8/i.test(url))) {
+    return ['hls', 'mpegts'];
+  }
+  // Raw TS / extension-less: mpegts first, HLS second (some panels serve m3u8 body).
   return ['mpegts', 'hls'];
 }
 
@@ -76,6 +130,10 @@ function isLikelyWebOsRuntime(): boolean {
 }
 
 export function enginesForUrl(url: string): readonly PlaybackEngine[] {
+  if (isRemuxUrl(url)) return ['mpegts'];
+  // Never feed raw MKV/AVI into MSE engines — wait for remux candidate.
+  if (needsContainerRemux(url)) return [];
+
   const live = /\/live\//i.test(url);
   const kind = detectStreamKind(url);
   const onWebOs = isLikelyWebOsRuntime();
@@ -91,7 +149,8 @@ export function enginesForUrl(url: string): readonly PlaybackEngine[] {
     case 'mpegts':
       return onWebOs ? ['mpegts', 'hls', 'native'] : ['mpegts', 'hls', 'native'];
     case 'native':
-      return ['native', 'mpegts', 'hls'];
+      // Progressive MP4/WebM — mpegts.js cannot demux these; skip it.
+      return ['native', 'hls'];
     default:
       return onWebOs ? ['mpegts', 'hls', 'native'] : ['mpegts', 'hls', 'native'];
   }
@@ -133,15 +192,14 @@ export function buildPlaybackCandidates(url: string): string[] {
     return candidates;
   }
 
-  // Unplayable containers — prefer browser-friendly aliases first.
-  for (const ext of ['.mkv', '.avi', '.mpg', '.mpeg', '.mov', '.wmv', '.flv', '.m4v']) {
+  // Unplayable containers — remux early (aliases often 404 and burn timeouts).
+  for (const ext of UNPLAYABLE_EXT) {
     if (lower.endsWith(ext)) {
       const stem = bare.slice(0, -ext.length);
+      const remux = resolveRemuxFetchUrl(url);
+      if (remux) push(remux);
       push(`${stem}.mp4${query}`);
       push(`${stem}.m3u8${query}`);
-      push(`${stem}.ts${query}`);
-      push(stem + query);
-      push(url);
       return candidates;
     }
   }
@@ -168,9 +226,11 @@ export function buildPlaybackCandidates(url: string): string[] {
 
   // Extension-less Xtream movie/series URLs.
   if (/\/(movie|series)\/[^/]+\/[^/]+\/[^/.?]+$/i.test(bare)) {
-    push(url);
-    push(`${bare}.m3u8${query}`);
+    const remux = resolveRemuxFetchUrl(url);
     push(`${bare}.mp4${query}`);
+    push(`${bare}.m3u8${query}`);
+    if (remux) push(remux);
+    push(url);
     push(`${bare}.ts${query}`);
     return candidates;
   }
@@ -185,6 +245,10 @@ export function buildPlaybackCandidates(url: string): string[] {
     } else {
       push(`${bare}.m3u8${query}`);
       push(`${bare}.mp4${query}`);
+    }
+    if (/\/(movie|series)\//i.test(bare)) {
+      const remux = resolveRemuxFetchUrl(url);
+      if (remux) push(remux);
     }
   }
 
@@ -219,6 +283,9 @@ export function resolveMediaFetchUrl(url: string): string {
 }
 
 export function formatPlaybackFailure(url: string, cause: string): string {
+  if (isRemuxUrl(url) || needsContainerRemux(url)) {
+    return `Bu video tarayıcıda açılamıyor (${cause}). Kaynak MKV/HEVC olabilir — remux başarısız veya codec desteklenmiyor.`;
+  }
   const kind = detectStreamKind(url);
   if (kind === 'native' || /\.(mkv|avi|mov|hevc|m4v)(\?|$)/i.test(url)) {
     return `Bu video tarayıcıda açılamıyor (${cause}). Kaynak MKV/HEVC olabilir — webOS TV’de deneyin veya başka bir yayın seçin.`;

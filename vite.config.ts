@@ -8,6 +8,7 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 const PLAYLIST_PROXY_PATH = '/api/playlist-proxy';
 const STREAM_PROXY_PATH = '/api/stream-proxy';
+const STREAM_REMUX_PATH = '/api/stream-remux';
 
 /** Dev server middleware — fetches remote M3U URLs server-side to bypass browser CORS. */
 function playlistProxyPlugin(): Plugin {
@@ -184,6 +185,97 @@ function streamProxyPlugin(): Plugin {
   };
 }
 
+/** Dev remux — ffmpeg -c copy to MPEG-TS (same idea as license /v1/stream-remux). */
+function streamRemuxPlugin(): Plugin {
+  return {
+    name: 'ivplayer-stream-remux',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (!req.url?.startsWith(STREAM_REMUX_PATH)) {
+          next();
+          return;
+        }
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
+          res.end();
+          return;
+        }
+
+        const requestUrl = new URL(req.url, 'http://localhost');
+        const target = requestUrl.searchParams.get('url');
+        if (!target) {
+          res.statusCode = 400;
+          res.end('Missing url parameter');
+          return;
+        }
+
+        void import('node:child_process').then(({ spawn }) => {
+          try {
+            const parsed = new URL(target);
+            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+              res.statusCode = 400;
+              res.end('Only http and https URLs are supported');
+              return;
+            }
+          } catch {
+            res.statusCode = 400;
+            res.end('Invalid url');
+            return;
+          }
+
+          const child = spawn(
+            'ffmpeg',
+            [
+              '-hide_banner',
+              '-loglevel',
+              'error',
+              '-user_agent',
+              'VLC/3.0.20 LibVLC/3.0.20',
+              '-i',
+              target,
+              '-map',
+              '0:v:0',
+              '-map',
+              '0:a:0?',
+              '-c',
+              'copy',
+              '-f',
+              'mpegts',
+              'pipe:1',
+            ],
+            { stdio: ['ignore', 'pipe', 'pipe'] },
+          );
+
+          child.on('error', () => {
+            if (!res.headersSent) {
+              res.statusCode = 501;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ ok: false, error: 'remux_unavailable' }));
+            }
+          });
+
+          res.statusCode = 200;
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Content-Type', 'video/mp2t');
+          res.setHeader('Cache-Control', 'no-store');
+          child.stdout.pipe(res);
+          req.on('close', () => {
+            try {
+              child.kill('SIGKILL');
+            } catch {
+              // ignore
+            }
+          });
+        });
+      });
+    },
+  };
+}
+
 /** Modern ES2022 bundle (not webOS Chromium 79 IIFE). */
 function isModernBundle(mode: string, command: ConfigEnv['command']): boolean {
   return (
@@ -233,6 +325,7 @@ export default defineConfig(({ mode, command }: ConfigEnv): UserConfig => {
       tailwindcss(),
       playlistProxyPlugin(),
       streamProxyPlugin(),
+      streamRemuxPlugin(),
       fluidViewport
         ? {
             name: 'fluid-viewport',

@@ -6,7 +6,7 @@ export const tr: Messages = {
   'home.recent': 'Son playlistler',
   'home.licenseRequired': 'Oyuncu lisansı gerekli',
   'home.licenseRequiredHint':
-    'Bu cihaz kodunu ivplayer.tr üzerinden yıllık veya ömür boyu satın alın. Ödeme sonrası “Lisansı kontrol et” deyin, sonra kendi M3U URL’nizi yükleyin.',
+    'İlk 7 gün ücretsiz deneyin. Sonra bu cihaz koduyla ivplayer.tr üzerinden 1 yıllık veya ömür boyu lisans alın.',
   'home.licenseRequiredHintPlay':
     'Bu cihazda lisans yok. Play içi satın alma sonraki adımda. Başka bir IvPlayer lisansınız varsa “Lisansı kontrol et” deyin.',
   'home.licenseActive': 'Lisans aktif',
@@ -16,7 +16,8 @@ export const tr: Messages = {
   'home.open': 'Aç',
   'home.add': 'Ekle',
   'home.device': 'Cihaz kodu',
-  'home.deviceHint': 'Satın alırken bu kodu siteye yazın (MAC yerine cihaz kodu kullanılır).',
+  'home.deviceHint':
+    'İlk açılışta 7 günlük deneme başlar. Satın alırken bu kodu siteye yazın.',
   'home.deviceHintPlay': 'Cihaz kodunuz. Mevcut bir lisansınız varsa “Lisansı kontrol et” deyin.',
   'home.buyOnSite': 'Siteden satın al',
   'home.buyUrl': 'ivplayer.tr/activation.html',
@@ -85,6 +86,8 @@ export const tr: Messages = {
   'channels.tvPrograms': 'TV Programları',
   'channels.selectChannel': 'Bir kanal seçin',
   'channels.total': 'Toplam',
+  'channels.episodeCount': '{n} bölüm',
+  'channels.season': 'Sezon {n}',
   'favorites.title': 'Favoriler',
   'favorites.count': 'yıldızlı kanal',
   'favorites.emptyPlaylist': 'Favorileri görmek için önce playlist yükleyin',

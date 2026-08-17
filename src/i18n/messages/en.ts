@@ -6,7 +6,7 @@ export const en: Messages = {
   'home.recent': 'Recent Playlists',
   'home.licenseRequired': 'Player license required',
   'home.licenseRequiredHint':
-    'Buy a 1-year or lifetime license on ivplayer.tr with this device code. Then tap Check license and load your own M3U URL.',
+    'The first 7 days are free. Then buy a 1-year or lifetime license on ivplayer.tr with this device code.',
   'home.licenseRequiredHintPlay':
     'No license on this device. In-app Play purchase comes next. If you already have an IvPlayer license, tap Check license.',
   'home.licenseActive': 'License active',
@@ -16,7 +16,8 @@ export const en: Messages = {
   'home.open': 'Open',
   'home.add': 'Add',
   'home.device': 'Device code',
-  'home.deviceHint': 'Use this code on the website (device code instead of MAC).',
+  'home.deviceHint':
+    'A 7-day trial starts on first launch. Use this code on the website to buy a license.',
   'home.deviceHintPlay': 'Your device code. If you already have a license, tap Check license.',
   'home.buyOnSite': 'Buy on website',
   'home.buyUrl': 'ivplayer.tr/activation.html',
@@ -84,6 +85,8 @@ export const en: Messages = {
   'channels.tvPrograms': 'TV Programs',
   'channels.selectChannel': 'Select a channel',
   'channels.total': 'Total',
+  'channels.episodeCount': '{n} episodes',
+  'channels.season': 'Season {n}',
   'favorites.title': 'Favorites',
   'favorites.count': 'starred channels',
   'favorites.emptyPlaylist': 'Load a playlist first to view favorites',

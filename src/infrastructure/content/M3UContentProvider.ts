@@ -13,6 +13,7 @@ import type { FilePickerService } from '@/platform/interfaces';
 import type { DownloadService } from '@/application/download/DownloadService';
 import type { CacheService } from '@/application/cache/CacheService';
 import { CacheNamespace } from '@/domain/cache/ICacheService';
+import { preferXtreamM3uPlus } from '@/infrastructure/network/fetchUrl';
 import type { Logger } from '@/infrastructure/logging/Logger';
 
 /** Skip memory cache above this size — caching a 50MB+ M3U doubles RAM and freezes. */
@@ -71,14 +72,15 @@ export class M3UContentProvider implements IContentProvider {
   ): Promise<ContentLoadResult> {
     this.logger.info('Fetching remote M3U', 'M3UContentProvider');
 
+    const fetchUrl = preferXtreamM3uPlus(url);
     let content: string;
-    const cacheKey = `m3u:${url}`;
+    const cacheKey = `m3u:${fetchUrl}`;
     const cached = await this.cacheService.get<string>(CacheNamespace.Playlist, cacheKey);
 
     if (cached) {
       content = cached;
     } else {
-      content = await this.downloadService.downloadText(url, {
+      content = await this.downloadService.downloadText(fetchUrl, {
         timeoutMs: 120_000,
         retryAttempts: 3,
       });
@@ -91,7 +93,7 @@ export class M3UContentProvider implements IContentProvider {
     const source: PlaylistSource = {
       type: 'url',
       label: label ?? this.extractNameFromUrl(url),
-      location: url,
+      location: fetchUrl,
     };
 
     return this.parseContent(content, source.label, source, onProgress);

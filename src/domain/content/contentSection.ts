@@ -38,7 +38,7 @@ export function normalizeCategoryKey(value: string): string {
 
 /** Movie / VOD group markers (matched against normalized text). */
 const MOVIE_GROUP =
-  /(?:^|[\s|/_►›»→:.-])(film|films|filme|movie|movies|vod|cinema|sinema|peliculas?|boxoffice|box\s*office|hollywoodwood|bollywood|animasyon|animation)(?:\b|$)/;
+  /(?:^|[\s|/_►›»→:.-])(film|films|filme|filmler|filmleri|movie|movies|vod|cinema|sinema|peliculas?|boxoffice|box\s*office|hollywoodwood|bollywood|animasyon|animation)(?:\b|$)/;
 
 /** Series markers. */
 const SERIES_GROUP =
@@ -153,8 +153,9 @@ export function isVodLabeledCategory(group: string): boolean {
 }
 
 /**
- * Cached playlists parsed with the old EXTINF bug have almost everything as
- * "Uncategorized" while live URLs still contain /live/. Those need a re-fetch.
+ * Cached playlists with almost everything as "Uncategorized" need a re-fetch.
+ * Covers old EXTINF bugs (/live/ URLs) and bare Xtream `type=m3u` lists
+ * (short /user/pass/id URLs with no group-title).
  */
 export function playlistGroupsNeedRepair(
   channels: readonly { readonly group: string; readonly url: string }[],
@@ -172,7 +173,10 @@ export function playlistGroupsNeedRepair(
       if (/\/live\//i.test(ch.url)) liveUncat++;
     }
   }
-  return uncategorized / sample >= 0.45 && liveUncat >= 50;
+  const ratio = uncategorized / sample;
+  // Bare Xtream m3u: every row is Uncategorized, URLs lack /live/.
+  if (ratio >= 0.8) return true;
+  return ratio >= 0.45 && liveUncat >= 50;
 }
 
 export function classifyGroupName(group: string): ContentSection {

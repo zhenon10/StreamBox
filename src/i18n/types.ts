@@ -32,6 +32,8 @@ export type MessageKey =
   | 'channels.tvPrograms'
   | 'channels.selectChannel'
   | 'channels.total'
+  | 'channels.episodeCount'
+  | 'channels.season'
   | 'menu.checkLicense'
   | 'menu.checkLicenseSub'
   | 'menu.checkLicenseSubPlay'

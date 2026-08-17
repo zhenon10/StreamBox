@@ -16,6 +16,7 @@ import type {
 } from '@/domain/repositories';
 import type { IChannelRepository } from '@/domain/repositories/IChannelRepository';
 import { parseM3UAsync } from '@/infrastructure/parsers/M3UParser';
+import { preferXtreamM3uPlus } from '@/infrastructure/network/fetchUrl';
 import { yieldToMain } from '@/infrastructure/async/yieldToMain';
 import type { IChannelIndex } from '@/domain/repositories';
 import type { FilePickerService, NetworkService } from '@/platform/interfaces';
@@ -106,19 +107,20 @@ export async function loadPlaylistFromUrl(
   onProgress?: (progress: LoadPlaylistProgress) => void,
 ): Promise<Playlist> {
   deps.performanceMonitor?.mark('playlist-load-start');
+  const normalizedUrl = preferXtreamM3uPlus(url);
 
   if (deps.contentProviders) {
     const provider = deps.contentProviders.getProviderFor(ContentSourceType.M3UUrl);
     if (provider) {
       try {
         const result = await provider.load(
-          { sourceType: ContentSourceType.M3UUrl, location: url },
+          { sourceType: ContentSourceType.M3UUrl, location: normalizedUrl },
           onProgress,
         );
         return savePlaylistFromContent(deps, result.name, result.source, result.channels, result.categories, onProgress);
       } catch (error) {
         deps.eventPublisher?.publish(EventKind.PlaylistLoadFailed, {
-          source: url,
+          source: normalizedUrl,
           error: error instanceof Error ? error.message : 'Load failed',
         });
         throw error;
@@ -126,17 +128,20 @@ export async function loadPlaylistFromUrl(
     }
   }
 
-  const response = await deps.network.fetch(url, { timeoutMs: 60000 });
+  const response = await deps.network.fetch(normalizedUrl, { timeoutMs: 120000 });
   if (!response.ok) {
     const error = `Failed to fetch playlist: HTTP ${String(response.status)}`;
-    deps.eventPublisher?.publish(EventKind.PlaylistLoadFailed, { source: url, error });
+    deps.eventPublisher?.publish(EventKind.PlaylistLoadFailed, {
+      source: normalizedUrl,
+      error,
+    });
     throw new Error(error);
   }
 
   const source: PlaylistSource = {
     type: 'url',
     label: extractNameFromUrl(url),
-    location: url,
+    location: normalizedUrl,
   };
 
   return buildAndSavePlaylist(deps, source, response.body, source.label, onProgress);

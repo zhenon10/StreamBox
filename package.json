@@ -18,7 +18,7 @@
     "preview": "vite preview",
     "package:webos": "npm run tv:package",
     "license:server": "node license-server/index.mjs",
-    "license:test": "node --test license-server/payments/payments.test.mjs",
+    "license:test": "node --test license-server/payments/payments.test.mjs license-server/licenseTrial.test.mjs",
     "tv:icons": "node scripts/generate-webos-icons.mjs",
     "web:build": "node scripts/package-web.mjs",
     "tv:store-check": "node scripts/store-check.mjs",

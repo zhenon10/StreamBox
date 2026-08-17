@@ -7,6 +7,7 @@ import {
   planDisplayName,
   resolvePlan,
 } from './plans.mjs';
+import { isTrialRecord } from '../licenseTrial.mjs';
 
 export const PAYMENT = {
   PENDING: 'PENDING',
@@ -72,6 +73,7 @@ export function findOrder(db, orderNo) {
 export function hasActiveDeviceLicense(db, deviceCode) {
   const rec = db.deviceLicenses?.[deviceCode];
   if (!rec) return false;
+  if (isTrialRecord(rec)) return false;
   return Date.now() <= Number(rec.expiresAt);
 }
 

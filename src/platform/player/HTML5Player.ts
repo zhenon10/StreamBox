@@ -13,6 +13,7 @@ import {
   enginesForLive,
   enginesForUrl,
   formatPlaybackFailure,
+  isRemuxUrl,
   resolveMediaFetchUrl,
   type PlaybackEngine,
 } from '@/infrastructure/player/streamUrl';
@@ -128,7 +129,10 @@ export class HTML5Player implements IVideoPlayer {
       for (const candidate of candidates) {
         if (generation !== this.loadGeneration) return;
 
-        const engines = this.liveMode ? enginesForLive() : enginesForUrl(candidate);
+        const engines = this.liveMode
+          ? enginesForLive(candidate)
+          : enginesForUrl(candidate);
+        if (engines.length === 0) continue;
         for (const engine of engines) {
           if (generation !== this.loadGeneration) return;
           try {
@@ -497,10 +501,10 @@ export class HTML5Player implements IVideoPlayer {
       throw new Error('Native engine skipped for live');
     }
 
-    const urls =
-      import.meta.env.DEV && /^https?:\/\//i.test(url)
-        ? [url, resolveMediaFetchUrl(url)]
-        : [url];
+    // Production web is HTTPS; IPTV URLs are often HTTP → mixed-content block.
+    // Always prefer the CORS/HTTPS stream-proxy, then fall back to direct.
+    const proxied = resolveMediaFetchUrl(url);
+    const urls = proxied !== url ? [proxied, url] : [url];
 
     let lastError: Error | null = null;
     for (const src of urls) {
@@ -523,7 +527,7 @@ export class HTML5Player implements IVideoPlayer {
       const timer = window.setTimeout(() => {
         cleanup();
         reject(new Error('Native load timeout'));
-      }, 12_000);
+      }, 20_000);
 
       const onError = (): void => {
         cleanup();
@@ -553,7 +557,7 @@ export class HTML5Player implements IVideoPlayer {
     if (!video) throw new Error('Player not attached');
 
     if (video.canPlayType('application/vnd.apple.mpegurl') && !import.meta.env.DEV) {
-      await this.loadNativeOnce(url);
+      await this.loadNativeOnce(resolveMediaFetchUrl(url));
       return;
     }
 
@@ -616,7 +620,9 @@ export class HTML5Player implements IVideoPlayer {
     if (!video) throw new Error('Player not attached');
     if (!mpegts.isSupported()) throw new Error('MPEG-TS not supported in this browser');
 
-    const isLive = this.liveMode || /\/live\//i.test(url);
+    const isLive = isRemuxUrl(url)
+      ? false
+      : this.liveMode || /\/live\//i.test(url);
     const generation = this.loadGeneration;
 
     // Prefer proxied URL whenever rewrite applies (DEV Vite proxy or webOS license proxy).
@@ -670,9 +676,9 @@ export class HTML5Player implements IVideoPlayer {
         {
           enableWorker: false,
           enableStashBuffer: true,
-          stashInitialSize: isLive ? 384 : 512,
+          stashInitialSize: isLive ? 768 : 512,
           // Web goes through the license-server stream-proxy, which adds latency
-          // vs. a direct connection. Tight chasing thresholds (5s/1s) made
+          // vs. a direct connection. Tight chasing thresholds (8s/1.5s) made
           // mpegts.js tear down and reopen the connection every few seconds on
           // that extra hop, which looked like the stream repeatedly stalling.
           liveBufferLatencyChasing: isLive,
@@ -693,7 +699,7 @@ export class HTML5Player implements IVideoPlayer {
         } else {
           finish(() => reject(new Error('MPEG-TS load timeout')));
         }
-      }, isLive ? 8_000 : 10_000);
+      }, isLive ? 12_000 : 18_000);
 
       player.on(mpegts.Events.ERROR, (...args: unknown[]) => {
         window.clearTimeout(timer);

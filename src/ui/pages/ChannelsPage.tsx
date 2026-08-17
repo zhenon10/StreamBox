@@ -20,6 +20,7 @@ import {
   type ContentSection,
   type SectionCategory,
 } from '@/domain/content/contentSection';
+import { xtreamUrlNeedsM3uPlus } from '@/infrastructure/network/fetchUrl';
 import type { Channel } from '@/domain/entities';
 import { useRequireLicense } from '@/ui/hooks/useRequireLicense';
 import { isShellUi } from '@/platform/detectPlatform';
@@ -133,7 +134,8 @@ export function ChannelsPage(): ReactNode {
       if (
         !repairAttempted.current &&
         currentPlaylist.source.type === 'url' &&
-        playlistGroupsNeedRepair(channelSession.getAll())
+        (xtreamUrlNeedsM3uPlus(currentPlaylist.source.location) ||
+          playlistGroupsNeedRepair(channelSession.getAll()))
       ) {
         repairAttempted.current = true;
         setRepairMessage(t('channels.repairing'));
@@ -282,9 +284,19 @@ export function ChannelsPage(): ReactNode {
   );
 
   const handleChannelSelect = useCallback(
-    (channel: Channel) => {
+    (channel: Channel, zapViewIndices?: readonly number[]) => {
       channelSession.remember(channel);
-      channelSession.setZapContext(viewIndices);
+      if (zapViewIndices && zapViewIndices.length > 0) {
+        const real =
+          viewIndices && viewIndices.length > 0
+            ? zapViewIndices
+                .map((viewIndex) => viewIndices[viewIndex])
+                .filter((index): index is number => index !== undefined)
+            : [...zapViewIndices];
+        channelSession.setZapContext(real.length > 0 ? real : viewIndices);
+      } else {
+        channelSession.setZapContext(viewIndices);
+      }
       usePlayerStore.getState().setActiveChannel(channel);
       navigate(`/player/${channel.id}`);
     },

@@ -4,6 +4,38 @@ import { detectPlatformType } from '@/platform/detectPlatform';
 export const PLAYLIST_PROXY_PATH = '/api/playlist-proxy';
 
 /**
+ * Xtream `type=m3u` is a bare list (no group-title). Prefer `m3u_plus` so
+ * Live / Film / Dizi tabs can classify channels.
+ */
+export function preferXtreamM3uPlus(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.toLowerCase();
+    if (!path.endsWith('/get.php') && path !== '/get.php') return url;
+    if (!parsed.searchParams.has('username') || !parsed.searchParams.has('password')) {
+      return url;
+    }
+    const type = (parsed.searchParams.get('type') ?? '').toLowerCase();
+    if (type === 'm3u_plus' || type === 'm3u8_plus') return url;
+    if (type === 'm3u' || type === '' || type === 'm3u8') {
+      parsed.searchParams.set('type', 'm3u_plus');
+      if (!parsed.searchParams.get('output')) {
+        parsed.searchParams.set('output', 'ts');
+      }
+      return parsed.toString();
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
+/** True when a saved playlist URL should be re-fetched as m3u_plus. */
+export function xtreamUrlNeedsM3uPlus(url: string): boolean {
+  return preferXtreamM3uPlus(url) !== url;
+}
+
+/**
  * Route external playlist URLs through a CORS-friendly proxy when needed.
  * - Browser DEV: Vite `/api/playlist-proxy`
  * - Production (web + webOS): license API `/v1/stream-proxy`

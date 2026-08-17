@@ -18,6 +18,7 @@ import {
   validateStoredLicense,
 } from '@/application/usecases/licenseUseCases';
 import { playlistGroupsNeedRepair } from '@/domain/content/contentSection';
+import { xtreamUrlNeedsM3uPlus } from '@/infrastructure/network/fetchUrl';
 import type { LicenseSnapshot } from '@/domain/license/types';
 import {
   formatPurchaseCode,
@@ -265,7 +266,8 @@ export function HomePage(): ReactNode {
       let playlist = await repositories.playlists.getById(last.id as PlaylistId);
       const needsFetch =
         last.source.type === 'url' &&
-        (!playlist ||
+        (xtreamUrlNeedsM3uPlus(last.source.location) ||
+          !playlist ||
           playlist.channels.length === 0 ||
           playlistGroupsNeedRepair(playlist.channels));
 
@@ -488,7 +490,9 @@ export function HomePage(): ReactNode {
 
     const shouldRefetch =
       playlist.source.type === 'url' &&
-      (playlist.channels.length === 0 || playlistGroupsNeedRepair(playlist.channels));
+      (xtreamUrlNeedsM3uPlus(playlist.source.location) ||
+        playlist.channels.length === 0 ||
+        playlistGroupsNeedRepair(playlist.channels));
 
     if (shouldRefetch) {
       setLoading(true);

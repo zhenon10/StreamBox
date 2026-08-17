@@ -66,7 +66,9 @@ export function AndroidHomeLayout({
         </p>
         <div className="and-home-status">
           <span className={licensed ? 'is-on' : 'is-off'}>
-            {licensed ? t('home.active') : t('home.inactive')}
+            {licensed
+              ? licenseSnapshot?.planName || t('home.active')
+              : t('home.inactive')}
           </span>
           {expiresLabel ? (
             <span>

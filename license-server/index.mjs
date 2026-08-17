@@ -2,6 +2,7 @@
  * Minimal IvPlayer license API + admin panel — Node built-in http only.
  * Public:  POST /v1/activate | /v1/validate | /v1/deactivate | /v1/claim · GET /v1/health
  *          GET /v1/stream-proxy?url=…  (CORS tunnel for TV MSE playback)
+ *          GET /v1/stream-remux?url=…  (ffmpeg -c copy → MPEG-TS for MKV/VOD)
  *          GET /v1/plans · POST /v1/orders · GET /v1/orders/:orderNo
  *          POST /v1/payments/paytr/callback  (PayTR Bildirim URL, plain OK)
  * Admin:   GET /admin (login gate) · POST /admin/login · POST /admin/logout
@@ -15,11 +16,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import dns from 'node:dns/promises';
+import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { URL as NodeURL } from 'node:url';
 import net from 'node:net';
 import { handlePaymentHttp, getPaymentProvider } from './payments/http.mjs';
 import { adminOrderView, ensureOrders } from './payments/orderService.mjs';
+import { grantTrialIfNew, PAID_KIND, syncSyntheticDeviceCode } from './licenseTrial.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_PATH = path.join(__dirname, 'data', 'licenses.json');
@@ -32,6 +35,8 @@ const PORT = Number(process.env.LICENSE_PORT ?? 8787);
 const BIND = process.env.LICENSE_BIND?.trim() || '0.0.0.0';
 const ADMIN_KEY = process.env.LICENSE_ADMIN_KEY?.trim() || 'ivplayer-admin';
 const DEMO_PLAYLIST_OVERRIDE = process.env.LICENSE_DEMO_PLAYLIST_URL?.trim() || '';
+const REMUX_MAX_CONCURRENT = Math.max(1, Number(process.env.LICENSE_REMUX_MAX ?? 3));
+let remuxActive = 0;
 
 function ensureDataFile() {
   if (fs.existsSync(DATA_PATH)) return;
@@ -521,7 +526,9 @@ function upsertDeviceLicense(db, input) {
     expiresAt,
     fullDeviceId: prev?.fullDeviceId,
     createdAt: prev?.createdAt ?? Date.now(),
+    kind: PAID_KIND,
   };
+  syncSyntheticDeviceCode(db, key, db.deviceLicenses[key]);
   saveDb(db);
   return { status: 200, body: { ok: true, deviceCode: key, ...db.deviceLicenses[key] } };
 }
@@ -575,7 +582,10 @@ function claim(db, input) {
   }
 
   const pcode = purchaseCodeFromDeviceId(deviceId);
-  const rec = db.deviceLicenses[pcode] || db.deviceLicenses[deviceId];
+  let rec = db.deviceLicenses[pcode] || db.deviceLicenses[deviceId];
+  if (!rec) {
+    rec = grantTrialIfNew(db, pcode, deviceId);
+  }
   if (!rec) {
     return { status: 404, body: { ok: false, error: 'not_found' } };
   }
@@ -636,6 +646,300 @@ async function handleStreamProxy(req, res, requestUrl) {
   }
 
   proxyFetch(req, res, target, 0);
+}
+
+/** Resolve ffmpeg binary (env override, then PATH, then ~/bin/ffmpeg). */
+function resolveFfmpegPath() {
+  const fromEnv = process.env.FFMPEG_PATH?.trim();
+  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+  try {
+    const which = process.platform === 'win32' ? 'where' : 'which';
+    const found = execFileSync(which, ['ffmpeg'], { encoding: 'utf8' })
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .find(Boolean);
+    if (found && fs.existsSync(found)) return found;
+  } catch {
+    // not on PATH
+  }
+  const homeBin = path.join(process.env.HOME || '', 'bin', 'ffmpeg');
+  if (homeBin && fs.existsSync(homeBin)) return homeBin;
+  return null;
+}
+
+/**
+ * Remux remote VOD (MKV etc.) to MPEG-TS for browser MSE.
+ * Static ffmpeg often segfaults on HTTPS -i URLs, so Node fetches and pipes to stdin.
+ * Video is copied; audio is lightly re-encoded to AAC for TS mux compatibility.
+ */
+async function handleStreamRemux(req, res, requestUrl) {
+  const target = requestUrl.searchParams.get('url');
+  if (!target) {
+    json(res, 400, { ok: false, error: 'missing_url' });
+    return;
+  }
+
+  try {
+    await assertSafeProxyTarget(target);
+  } catch (error) {
+    json(res, 400, {
+      ok: false,
+      error: error instanceof Error ? error.message : 'unsafe_url',
+    });
+    return;
+  }
+
+  const ffmpegPath = resolveFfmpegPath();
+  if (!ffmpegPath) {
+    json(res, 501, { ok: false, error: 'remux_unavailable' });
+    return;
+  }
+
+  if (remuxActive >= REMUX_MAX_CONCURRENT) {
+    json(res, 503, { ok: false, error: 'remux_busy' });
+    return;
+  }
+
+  if (req.method === 'HEAD') {
+    res.writeHead(200, {
+      ...CORS,
+      'Content-Type': 'video/mp2t',
+      'Cache-Control': 'no-store',
+    });
+    res.end();
+    return;
+  }
+
+  remuxActive += 1;
+  let settled = false;
+  /** @type {import('node:child_process').ChildProcessWithoutNullStreams | null} */
+  let child = null;
+  /** @type {import('node:http').IncomingMessage | null} */
+  let upstream = null;
+
+  const release = () => {
+    if (settled) return;
+    settled = true;
+    remuxActive = Math.max(0, remuxActive - 1);
+    try {
+      child?.kill('SIGKILL');
+    } catch {
+      // ignore
+    }
+    try {
+      upstream?.destroy();
+    } catch {
+      // ignore
+    }
+  };
+
+  req.on('close', () => {
+    release();
+  });
+
+  let up;
+  try {
+    up = await openUpstreamMedia(target, 0);
+    upstream = up;
+  } catch (error) {
+    release();
+    if (!res.headersSent) {
+      json(res, 502, {
+        ok: false,
+        error: error instanceof Error ? error.message : 'upstream_failed',
+      });
+    }
+    return;
+  }
+
+  const status = up.statusCode ?? 502;
+  if (status >= 400) {
+    up.resume();
+    release();
+    if (!res.headersSent) json(res, 502, { ok: false, error: `upstream_${status}` });
+    return;
+  }
+
+  const args = [
+    '-hide_banner',
+    '-loglevel',
+    'error',
+    '-fflags',
+    '+genpts',
+    '-i',
+    'pipe:0',
+    '-map',
+    '0:v:0',
+    '-map',
+    '0:a:0?',
+    '-c:v',
+    'copy',
+    '-c:a',
+    'aac',
+    '-ac',
+    '2',
+    '-b:a',
+    '128k',
+    '-f',
+    'mpegts',
+    'pipe:1',
+  ];
+
+  try {
+    child = spawn(ffmpegPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+  } catch {
+    up.resume();
+    release();
+    if (!res.headersSent) json(res, 501, { ok: false, error: 'remux_unavailable' });
+    return;
+  }
+
+  up.pipe(child.stdin);
+  up.on('error', () => {
+    try {
+      child?.stdin.destroy();
+    } catch {
+      // ignore
+    }
+  });
+  child.stdin.on('error', () => {
+    // EPIPE when ffmpeg exits early — ignore
+  });
+
+  let headersSent = false;
+  const sendHeaders = () => {
+    if (headersSent || res.headersSent) return;
+    headersSent = true;
+    res.writeHead(200, {
+      ...CORS,
+      'Content-Type': 'video/mp2t',
+      'Cache-Control': 'no-store',
+    });
+  };
+
+  const firstByteTimer = setTimeout(() => {
+    if (!headersSent) {
+      release();
+      if (!res.headersSent) json(res, 504, { ok: false, error: 'remux_timeout' });
+    }
+  }, 25_000);
+
+  child.stdout.once('data', (chunk) => {
+    clearTimeout(firstByteTimer);
+    sendHeaders();
+    if (!res.writableEnded) res.write(chunk);
+    child.stdout.pipe(res);
+  });
+
+  let stderrBuf = '';
+  child.stderr.on('data', (chunk) => {
+    stderrBuf += String(chunk);
+    if (stderrBuf.length > 4000) stderrBuf = stderrBuf.slice(-2000);
+  });
+
+  child.on('error', () => {
+    clearTimeout(firstByteTimer);
+    release();
+    if (!res.headersSent) json(res, 502, { ok: false, error: 'remux_failed' });
+    else if (!res.writableEnded) res.end();
+  });
+
+  child.on('close', (code) => {
+    clearTimeout(firstByteTimer);
+    if (!headersSent) {
+      release();
+      if (!res.headersSent) {
+        json(res, 502, {
+          ok: false,
+          error: code === 0 ? 'remux_empty' : 'remux_failed',
+        });
+      }
+      return;
+    }
+    release();
+    if (!res.writableEnded) res.end();
+  });
+}
+
+/**
+ * Open upstream media for remux (follow redirects, SSRF-checked).
+ * @param {string} target
+ * @param {number} redirectCount
+ * @returns {Promise<import('node:http').IncomingMessage>}
+ */
+function openUpstreamMedia(target, redirectCount) {
+  return new Promise((resolve, reject) => {
+    let parsed;
+    try {
+      parsed = new NodeURL(target);
+    } catch {
+      reject(new Error('invalid_url'));
+      return;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      reject(new Error('unsupported_protocol'));
+      return;
+    }
+
+    const transport = parsed.protocol === 'https:' ? https : http;
+    const upstream = transport.request(
+      target,
+      {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'VLC/3.0.20 LibVLC/3.0.20',
+          Accept: '*/*',
+          Connection: 'keep-alive',
+        },
+        timeout: 30_000,
+      },
+      (up) => {
+        const status = up.statusCode ?? 502;
+        const location = up.headers.location;
+        if (location && status >= 300 && status < 400 && redirectCount < 8) {
+          up.resume();
+          let next;
+          try {
+            next = new NodeURL(location, target).toString();
+          } catch {
+            reject(new Error('bad_redirect'));
+            return;
+          }
+          void assertSafeProxyTarget(next)
+            .then(() => openUpstreamMedia(next, redirectCount + 1))
+            .then(resolve)
+            .catch((err) =>
+              reject(err instanceof Error ? err : new Error('blocked_redirect')),
+            );
+          return;
+        }
+        resolve(up);
+      },
+    );
+
+    upstream.on('timeout', () => {
+      upstream.destroy();
+      reject(new Error('upstream_timeout'));
+    });
+    upstream.on('error', (error) => {
+      reject(error instanceof Error ? error : new Error('upstream_failed'));
+    });
+    upstream.end();
+  });
+}
+
+/** @param {string} target */
+function guessProxyContentType(target) {
+  if (/\.m3u8(\?|$)/i.test(target)) return 'application/vnd.apple.mpegurl';
+  if (/\.mp4(\?|$)/i.test(target)) return 'video/mp4';
+  if (/\.webm(\?|$)/i.test(target)) return 'video/webm';
+  if (/\.mkv(\?|$)/i.test(target)) return 'video/x-matroska';
+  if (/\.(ts|m2ts)(\?|$)/i.test(target)) return 'video/mp2t';
+  if (/\/(movie|series)\//i.test(target)) return 'video/mp4';
+  return 'video/mp2t';
 }
 
 /**
@@ -753,7 +1057,8 @@ function proxyFetch(req, res, target, redirectCount) {
     {
       method: req.method === 'HEAD' ? 'HEAD' : 'GET',
       headers,
-      timeout: 20_000,
+      // Large Xtream m3u_plus playlists often exceed 10–30MB; 20s truncates them.
+      timeout: 120_000,
     },
     (up) => {
       const status = up.statusCode ?? 502;
@@ -776,20 +1081,21 @@ function proxyFetch(req, res, target, redirectCount) {
         return;
       }
 
+      const isVodFile = /\.(mp4|mkv|avi|m4v|mov|webm)(\?|$)/i.test(target);
+      // Extension-less IPTV live (/user/pass/id or /live/...) must not get Content-Length —
+      // a wrong CL makes MSE stop after one segment.
       const isLikelyLive =
-        /\/live\//i.test(target) ||
-        up.headers['transfer-encoding'] === 'chunked' ||
-        !up.headers['content-length'];
+        !isVodFile &&
+        (/\/live\//i.test(target) ||
+          /\/[^/]+\/[^/]+\/\d+(\?|$)/i.test(target) ||
+          up.headers['transfer-encoding'] === 'chunked' ||
+          !up.headers['content-length']);
 
       // Allowlist response headers — do not forward Set-Cookie / auth from upstream.
       const outHeaders = {
         ...CORS,
         'Cache-Control': 'no-store',
-        'Content-Type':
-          up.headers['content-type'] ??
-          (/\.m3u8(\?|$)/i.test(target)
-            ? 'application/vnd.apple.mpegurl'
-            : 'video/mp2t'),
+        'Content-Type': up.headers['content-type'] ?? guessProxyContentType(target),
       };
 
       if (up.headers['content-length'] && !isLikelyLive) {
@@ -867,6 +1173,14 @@ const server = http.createServer(async (req, res) => {
     pathname === '/v1/stream-proxy'
   ) {
     await handleStreamProxy(req, res, url);
+    return;
+  }
+
+  if (
+    (req.method === 'GET' || req.method === 'HEAD') &&
+    pathname === '/v1/stream-remux'
+  ) {
+    await handleStreamRemux(req, res, url);
     return;
   }
 
@@ -1029,6 +1343,9 @@ server.listen(PORT, BIND, () => {
   console.log(`Admin panel: http://127.0.0.1:${PORT}/admin`);
   console.log(`Web player:  http://127.0.0.1:${PORT}/app/`);
   console.log(`Stream proxy: http://127.0.0.1:${PORT}/v1/stream-proxy?url=…`);
+  console.log(`Stream remux: http://127.0.0.1:${PORT}/v1/stream-remux?url=…`);
+  const ff = resolveFfmpegPath();
+  console.log(`FFmpeg: ${ff ?? 'not found (MKV remux disabled)'}`);
   console.log(`Demo code: DEMO-2026  (override playlist: LICENSE_DEMO_PLAYLIST_URL)`);
   console.log(`PayTR callback: POST /v1/payments/paytr/callback  configured=${getPaymentProvider().isConfigured()}`);
 });

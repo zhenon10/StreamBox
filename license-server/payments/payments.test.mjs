@@ -337,6 +337,24 @@ test('TEST 13 production frontend has no payment secrets', () => {
   }
 });
 
+test('active trial does not block a paid order', () => {
+  const db = emptyDb();
+  db.deviceLicenses[DEVICE] = {
+    planName: 'Deneme (7 gün)',
+    playlistUrl: '',
+    expiresAt: Date.now() + 86400000,
+    createdAt: Date.now(),
+    kind: 'trial',
+  };
+  const created = createPendingOrder(db, {
+    deviceCode: DEVICE,
+    plan: PLAN_ONE_YEAR,
+    email: 'a@b.co',
+  });
+  assert.equal(created.status, 201);
+  assert.equal(hasActiveDeviceLicense(db, DEVICE), false);
+});
+
 test('activateLicenseForOrder is idempotent', () => {
   const db = emptyDb();
   const order = {
