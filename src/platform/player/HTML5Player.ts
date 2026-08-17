@@ -671,9 +671,13 @@ export class HTML5Player implements IVideoPlayer {
           enableWorker: false,
           enableStashBuffer: true,
           stashInitialSize: isLive ? 384 : 512,
+          // Web goes through the license-server stream-proxy, which adds latency
+          // vs. a direct connection. Tight chasing thresholds (5s/1s) made
+          // mpegts.js tear down and reopen the connection every few seconds on
+          // that extra hop, which looked like the stream repeatedly stalling.
           liveBufferLatencyChasing: isLive,
-          liveBufferLatencyMaxLatency: 5,
-          liveBufferLatencyMinRemain: 1,
+          liveBufferLatencyMaxLatency: 20,
+          liveBufferLatencyMinRemain: 4,
           lazyLoad: false,
           autoCleanupSourceBuffer: true,
           fixAudioTimestampGap: true,
