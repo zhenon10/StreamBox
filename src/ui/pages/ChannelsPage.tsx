@@ -5,16 +5,11 @@ import { VirtualChannelList } from '@/ui/components/VirtualChannelList';
 import { useRouteFocus } from '@/ui/navigation/NavigationProvider';
 import { usePlaylistStore, usePlayerStore } from '@/application/stores/playlistStore';
 import { channelSession } from '@/application/channels/ChannelSessionStore';
-import {
-  channelIndex,
-  platform,
-  repositories,
-  services,
-  TOKENS,
-} from '@/application/di/container';
+import { channelIndex, platform, repositories, services, TOKENS } from '@/application/di/container';
 import { loadPlaylistFromUrl } from '@/application/usecases/playlistUseCases';
 import {
   emptyCatalog,
+  isAdultCategory,
   playlistGroupsNeedRepair,
   type ContentCatalog,
   type ContentSection,
@@ -25,6 +20,8 @@ import type { Channel } from '@/domain/entities';
 import { useRequireLicense } from '@/ui/hooks/useRequireLicense';
 import { isShellUi } from '@/platform/detectPlatform';
 import { AndroidBrowseView } from '@/ui/android/AndroidBrowseView';
+import { AdultPinDialog } from '@/ui/components/AdultPinDialog';
+import { adultLockSession } from '@/application/security/adultLockSession';
 import { useLocale, useT } from '@/i18n/useT';
 import type { MessageKey } from '@/i18n';
 
@@ -45,10 +42,7 @@ const SECTION_HINT_KEY: Record<ContentSection, MessageKey> = {
   series: 'section.seriesHint',
 };
 
-const SECTION_META: Record<
-  ContentSection,
-  { readonly icon: string; readonly accent: string }
-> = {
+const SECTION_META: Record<ContentSection, { readonly icon: string; readonly accent: string }> = {
   live: {
     icon: 'LIVE',
     accent: 'from-error-500/35 to-surface-950',
@@ -76,6 +70,8 @@ export function ChannelsPage(): ReactNode {
   const contentSection = usePlaylistStore((s) => s.contentSection);
   const favorites = usePlaylistStore((s) => s.favorites);
   const showChannelNumbers = usePlaylistStore((s) => s.settings.showChannelNumbers);
+  const adultLockEnabled = usePlaylistStore((s) => s.settings.adultLockEnabled);
+  const adultPin = usePlaylistStore((s) => s.settings.adultPin);
   const setActiveCategory = usePlaylistStore((s) => s.setActiveCategory);
   const setSearchQuery = usePlaylistStore((s) => s.setSearchQuery);
   const setContentSection = usePlaylistStore((s) => s.setContentSection);
@@ -103,6 +99,50 @@ export function ChannelsPage(): ReactNode {
   const availableSections = useMemo(() => {
     return SECTION_ORDER.filter((s) => catalog.counts[s] > 0);
   }, [catalog]);
+
+  const [adultUnlocked, setAdultUnlocked] = useState(() => adultLockSession.isUnlocked());
+  const [adultDialogOpen, setAdultDialogOpen] = useState(false);
+  const adultLockActive = adultLockEnabled && !adultUnlocked;
+
+  const { visibleCategories, adultLockedCount } = useMemo(() => {
+    if (!adultLockActive) return { visibleCategories: sectionCategories, adultLockedCount: 0 };
+    const visible: SectionCategory[] = [];
+    let lockedCount = 0;
+    for (const category of sectionCategories) {
+      if (category.adult) {
+        lockedCount++;
+      } else {
+        visible.push(category);
+      }
+    }
+    return { visibleCategories: visible, adultLockedCount: lockedCount };
+  }, [sectionCategories, adultLockActive]);
+
+  const openAdultDialog = useCallback(() => {
+    setAdultDialogOpen(true);
+    services.resolve(TOKENS.navigationGraph).pushModal('adult-pin-dialog');
+  }, []);
+
+  const closeAdultDialog = useCallback(() => {
+    setAdultDialogOpen(false);
+    services.resolve(TOKENS.navigationGraph).popModal();
+  }, []);
+
+  const handleAdultPinSubmit = useCallback(
+    (pin: string): 'wrong' | null => {
+      if (adultPin && pin !== adultPin) return 'wrong';
+      if (!adultPin) {
+        const nextSettings = { ...usePlaylistStore.getState().settings, adultPin: pin };
+        usePlaylistStore.getState().setSettings(nextSettings);
+        void repositories.settings.save(nextSettings);
+      }
+      adultLockSession.unlock();
+      setAdultUnlocked(true);
+      closeAdultDialog();
+      return null;
+    },
+    [adultPin, closeAdultDialog],
+  );
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => setReady(true));
@@ -207,17 +247,20 @@ export function ChannelsPage(): ReactNode {
         setIndexing(true);
         const indices = await channelSession.searchIndices(query, 500, contentSection);
         if (cancelled) return;
-        setViewIndices(indices);
+        const filtered = adultLockActive
+          ? indices.filter((i) => {
+              const ch = channelSession.getAt(i);
+              return !ch || !isAdultCategory(ch.group);
+            })
+          : indices;
+        setViewIndices(filtered);
         setIndexing(false);
         return;
       }
 
       if (activeCategory) {
         setIndexing(true);
-        const indices = await channelSession.collectGroupIndices(
-          activeCategory,
-          contentSection,
-        );
+        const indices = await channelSession.collectGroupIndices(activeCategory, contentSection);
         if (cancelled) return;
         setViewIndices(indices);
         setIndexing(false);
@@ -230,13 +273,27 @@ export function ChannelsPage(): ReactNode {
         return;
       }
 
+      // Small playlist "show everything" fast path — route through the
+      // section index when the lock must exclude +18 categories from it.
+      if (adultLockActive && sectionCategories.some((c) => c.adult)) {
+        setIndexing(true);
+        const indices = await channelSession.collectSectionIndices(contentSection, true);
+        if (cancelled) return;
+        setViewIndices(indices);
+        setIndexing(false);
+        return;
+      }
+
       setViewIndices(null);
       setIndexing(false);
     };
 
-    const timer = window.setTimeout(() => {
-      void apply();
-    }, query ? SEARCH_DEBOUNCE_MS : 0);
+    const timer = window.setTimeout(
+      () => {
+        void apply();
+      },
+      query ? SEARCH_DEBOUNCE_MS : 0,
+    );
 
     return () => {
       cancelled = true;
@@ -250,18 +307,20 @@ export function ChannelsPage(): ReactNode {
     ready,
     requireFilter,
     catalogLoading,
+    adultLockActive,
+    sectionCategories,
   ]);
 
   useEffect(() => {
     if (!isShellUi()) return;
     if (catalogLoading || searchQuery.trim() || activeCategory) return;
-    const first = sectionCategories[0];
+    const first = visibleCategories[0];
     if (first) setActiveCategory(first.name);
   }, [
     catalogLoading,
     searchQuery,
     activeCategory,
-    sectionCategories,
+    visibleCategories,
     setActiveCategory,
     contentSection,
   ]);
@@ -320,252 +379,285 @@ export function ChannelsPage(): ReactNode {
   const sectionMeta = SECTION_META[contentSection];
   const sectionHint = t(SECTION_HINT_KEY[contentSection]);
 
+  const adultDialog = adultDialogOpen ? (
+    <AdultPinDialog
+      mode={adultPin ? 'enter' : 'set'}
+      onCancel={closeAdultDialog}
+      onSubmit={handleAdultPinSubmit}
+    />
+  ) : null;
+
   if (isShellUi()) {
     const expiresLabel = licenseSnapshot
       ? new Date(licenseSnapshot.expiresAt).toLocaleDateString(numberLocale)
       : undefined;
     return (
-      <AndroidBrowseView
-        section={contentSection}
-        sectionLabel={sectionLabel}
-        playlistName={currentPlaylist.name}
-        expiresLabel={expiresLabel}
-        licensed={licensed}
-        categories={sectionCategories}
-        activeCategory={activeCategory}
-        searchQuery={searchQuery}
-        onSearch={setSearchQuery}
-        onSelectCategory={selectCategory}
-        onSection={(next) => {
-          setContentSection(next);
-          setViewIndices(null);
-        }}
-        listCount={listCount}
-        getChannel={getChannel}
-        onSelectChannel={handleChannelSelect}
-        favorites={favorites}
-        showNumbers={showChannelNumbers && contentSection === 'live'}
-        loading={!ready || catalogLoading}
-        indexing={indexing}
-      />
+      <>
+        <AndroidBrowseView
+          section={contentSection}
+          sectionLabel={sectionLabel}
+          playlistName={currentPlaylist.name}
+          expiresLabel={expiresLabel}
+          licensed={licensed}
+          categories={visibleCategories}
+          adultLockedCount={adultLockedCount}
+          onUnlockAdult={openAdultDialog}
+          activeCategory={activeCategory}
+          searchQuery={searchQuery}
+          onSearch={setSearchQuery}
+          onSelectCategory={selectCategory}
+          onSection={(next) => {
+            setContentSection(next);
+            setViewIndices(null);
+          }}
+          listCount={listCount}
+          getChannel={getChannel}
+          onSelectChannel={handleChannelSelect}
+          favorites={favorites}
+          showNumbers={showChannelNumbers && contentSection === 'live'}
+          loading={!ready || catalogLoading}
+          indexing={indexing}
+        />
+        {adultDialog}
+      </>
     );
   }
 
   return (
-    <div className="channels-shell flex h-full min-h-0 min-w-0 overflow-hidden bg-surface-950">
-      {/* Left rail */}
-      <aside className="channels-rail flex w-[380px] min-w-0 shrink-0 flex-col overflow-hidden border-r border-surface-700 bg-surface-900">
-        <div className="channels-rail-head border-b border-surface-700 px-6 py-5">
-          <p className="text-sm font-medium uppercase tracking-wider text-accent-300">
-            IvPlayer
-          </p>
-          <h2 className="mt-1 truncate text-2xl font-bold text-white">{currentPlaylist.name}</h2>
-          <p className="channels-playlist-count mt-1 text-base text-slate-400">
-            {channelCount.toLocaleString(numberLocale)} {t('channels.content')}
-          </p>
-          {repairMessage && (
-            <p className="mt-3 text-sm text-warning-300">{repairMessage}</p>
-          )}
-        </div>
+    <>
+      <div className="channels-shell flex h-full min-h-0 min-w-0 overflow-hidden bg-surface-950">
+        {/* Left rail */}
+        <aside className="channels-rail flex w-[380px] min-w-0 shrink-0 flex-col overflow-hidden border-r border-surface-700 bg-surface-900">
+          <div className="channels-rail-head border-b border-surface-700 px-6 py-5">
+            <p className="text-sm font-medium uppercase tracking-wider text-accent-300">IvPlayer</p>
+            <h2 className="mt-1 truncate text-2xl font-bold text-white">{currentPlaylist.name}</h2>
+            <p className="channels-playlist-count mt-1 text-base text-slate-400">
+              {channelCount.toLocaleString(numberLocale)} {t('channels.content')}
+            </p>
+            {repairMessage && <p className="mt-3 text-sm text-warning-300">{repairMessage}</p>}
+          </div>
 
-        <div className="channels-sections flex flex-col gap-3 border-b border-surface-700 p-4">
-          {availableSections.map((section) => {
-            const active = contentSection === section;
-            const meta = SECTION_META[section];
-            return (
-              <Focusable
-                key={section}
-                focusId={`section-${section}`}
-                focusGroup="sections"
-                focusPriority={section === 'live' ? 12 : section === 'movie' ? 11 : 10}
-                className="block w-full"
-                onClick={() => {
-                  setContentSection(section);
-                  setActiveCategory(null);
-                  setSearchQuery('');
-                  setViewIndices(null);
-                }}
-              >
-                <div
-                  className={`channels-section flex items-center gap-4 rounded-2xl px-4 py-4 transition-colors [.focused_&]:ring-2 [.focused_&]:ring-accent-400 ${
-                    active
-                      ? 'bg-accent-500 text-white'
-                      : 'bg-surface-800 text-slate-200 hover:bg-surface-700'
-                  }`}
+          <div className="channels-sections flex flex-col gap-3 border-b border-surface-700 p-4">
+            {availableSections.map((section) => {
+              const active = contentSection === section;
+              const meta = SECTION_META[section];
+              return (
+                <Focusable
+                  key={section}
+                  focusId={`section-${section}`}
+                  focusGroup="sections"
+                  focusPriority={section === 'live' ? 12 : section === 'movie' ? 11 : 10}
+                  className="block w-full"
+                  onClick={() => {
+                    setContentSection(section);
+                    setActiveCategory(null);
+                    setSearchQuery('');
+                    setViewIndices(null);
+                  }}
                 >
-                  <span
-                    className={`channels-section-icon flex h-12 w-12 items-center justify-center rounded-xl text-xs font-bold tracking-wide ${
-                      active ? 'bg-white/20 text-white' : 'bg-surface-700 text-accent-300'
+                  <div
+                    className={`channels-section flex items-center gap-4 rounded-2xl px-4 py-4 transition-colors [.focused_&]:ring-2 [.focused_&]:ring-accent-400 ${
+                      active
+                        ? 'bg-accent-500 text-white'
+                        : 'bg-surface-800 text-slate-200 hover:bg-surface-700'
                     }`}
                   >
-                    {meta.icon}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="channels-section-title truncate text-xl font-semibold">
-                      {t(SECTION_TITLE_KEY[section])}
-                    </div>
-                    <div className={`channels-section-hint text-sm ${active ? 'text-white/80' : 'text-slate-400'}`}>
-                      {catalog.counts[section].toLocaleString(numberLocale)} ·{' '}
-                      {t(SECTION_HINT_KEY[section])}
+                    <span
+                      className={`channels-section-icon flex h-12 w-12 items-center justify-center rounded-xl text-xs font-bold tracking-wide ${
+                        active ? 'bg-white/20 text-white' : 'bg-surface-700 text-accent-300'
+                      }`}
+                    >
+                      {meta.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="channels-section-title truncate text-xl font-semibold">
+                        {t(SECTION_TITLE_KEY[section])}
+                      </div>
+                      <div
+                        className={`channels-section-hint text-sm ${active ? 'text-white/80' : 'text-slate-400'}`}
+                      >
+                        {catalog.counts[section].toLocaleString(numberLocale)} ·{' '}
+                        {t(SECTION_HINT_KEY[section])}
+                      </div>
                     </div>
                   </div>
+                </Focusable>
+              );
+            })}
+          </div>
+
+          <div className="channels-search border-b border-surface-700 p-4">
+            <label className="mb-2 block text-sm font-medium text-slate-400">
+              {t('channels.searchLabel')}
+            </label>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="w-full rounded-2xl border-2 border-surface-600 bg-surface-800 px-5 py-4 text-xl text-white placeholder:text-slate-500 focus:border-accent-400 focus:outline-none"
+            />
+          </div>
+
+          {activeCategory && (
+            <div className="border-b border-surface-700 px-4 py-3">
+              <Focusable
+                focusId="clear-category"
+                focusGroup="categories"
+                className="block w-full"
+                onClick={() => setActiveCategory(null)}
+              >
+                <div className="rounded-xl bg-surface-800 px-4 py-3 text-center text-lg text-slate-200 [.focused_&]:bg-accent-500 [.focused_&]:text-white">
+                  {t('channels.allCategories')}
                 </div>
               </Focusable>
-            );
-          })}
-        </div>
+            </div>
+          )}
 
-        <div className="channels-search border-b border-surface-700 p-4">
-          <label className="mb-2 block text-sm font-medium text-slate-400">
-            {t('channels.searchLabel')}
-          </label>
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="w-full rounded-2xl border-2 border-surface-600 bg-surface-800 px-5 py-4 text-xl text-white placeholder:text-slate-500 focus:border-accent-400 focus:outline-none"
-          />
-        </div>
-
-        {activeCategory && (
-          <div className="border-b border-surface-700 px-4 py-3">
-            <Focusable
-              focusId="clear-category"
-              focusGroup="categories"
-              className="block w-full"
-              onClick={() => setActiveCategory(null)}
-            >
-              <div className="rounded-xl bg-surface-800 px-4 py-3 text-center text-lg text-slate-200 [.focused_&]:bg-accent-500 [.focused_&]:text-white">
-                {t('channels.allCategories')}
-              </div>
-            </Focusable>
-          </div>
-        )}
-
-        <div className="channels-cat-list scrollbar-hidden flex-1 overflow-y-auto p-4">
-          <p className="mb-3 px-1 text-sm font-semibold uppercase tracking-wider text-slate-500">
-            {t('channels.categories')}
-          </p>
-          {catalogLoading ? (
-            <p className="px-2 py-4 text-lg text-slate-500">{t('channels.indexing')}</p>
-          ) : sectionCategories.length === 0 ? (
-            <p className="px-2 py-4 text-lg text-slate-500">{t('channels.noCategory')}</p>
-          ) : (
-            sectionCategories.slice(0, 40).map((category, index) => (
-              <Focusable
-                key={`${category.section}-${category.name}`}
-                focusId={`cat-side-${contentSection}-${String(index)}`}
-                focusGroup="categories"
-                focusPriority={Math.max(0, 8 - index)}
-                className="mb-2 block w-full"
-                onClick={() => selectCategory(category.name)}
-              >
-                <div
-                  className={`channels-cat flex items-center justify-between gap-3 rounded-xl px-4 py-3.5 text-lg transition-colors [.focused_&]:bg-accent-500 [.focused_&]:text-white ${
-                    activeCategory === category.name
-                      ? 'bg-accent-500/25 text-accent-300'
-                      : 'bg-surface-800/80 text-slate-200 hover:bg-surface-700'
-                  }`}
+          <div className="channels-cat-list scrollbar-hidden flex-1 overflow-y-auto p-4">
+            <p className="mb-3 px-1 text-sm font-semibold uppercase tracking-wider text-slate-500">
+              {t('channels.categories')}
+            </p>
+            {catalogLoading ? (
+              <p className="px-2 py-4 text-lg text-slate-500">{t('channels.indexing')}</p>
+            ) : visibleCategories.length === 0 && adultLockedCount === 0 ? (
+              <p className="px-2 py-4 text-lg text-slate-500">{t('channels.noCategory')}</p>
+            ) : (
+              visibleCategories.slice(0, 40).map((category, index) => (
+                <Focusable
+                  key={`${category.section}-${category.name}`}
+                  focusId={`cat-side-${contentSection}-${String(index)}`}
+                  focusGroup="categories"
+                  focusPriority={Math.max(0, 8 - index)}
+                  className="mb-2 block w-full"
+                  onClick={() => selectCategory(category.name)}
                 >
-                  <span className="min-w-0 truncate font-medium">{shortCategoryName(category.name)}</span>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm tabular-nums ${
+                  <div
+                    className={`channels-cat flex items-center justify-between gap-3 rounded-xl px-4 py-3.5 text-lg transition-colors [.focused_&]:bg-accent-500 [.focused_&]:text-white ${
                       activeCategory === category.name
-                        ? 'bg-white/20 text-white'
-                        : 'bg-surface-700 text-slate-400'
+                        ? 'bg-accent-500/25 text-accent-300'
+                        : 'bg-surface-800/80 text-slate-200 hover:bg-surface-700'
                     }`}
                   >
-                    {category.channelCount.toLocaleString(numberLocale)}
+                    <span className="min-w-0 truncate font-medium">
+                      {shortCategoryName(category.name)}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm tabular-nums ${
+                        activeCategory === category.name
+                          ? 'bg-white/20 text-white'
+                          : 'bg-surface-700 text-slate-400'
+                      }`}
+                    >
+                      {category.channelCount.toLocaleString(numberLocale)}
+                    </span>
+                  </div>
+                </Focusable>
+              ))
+            )}
+            {adultLockedCount > 0 && (
+              <Focusable
+                focusId={`cat-side-${contentSection}-adult-lock`}
+                focusGroup="categories"
+                className="mb-2 block w-full"
+                onClick={openAdultDialog}
+              >
+                <div className="channels-cat flex items-center justify-between gap-3 rounded-xl border border-dashed border-surface-600 bg-surface-800/50 px-4 py-3.5 text-lg text-slate-300 transition-colors [.focused_&]:bg-accent-500 [.focused_&]:text-white">
+                  <span className="min-w-0 truncate font-medium">{t('channels.adultLocked')}</span>
+                  <span className="shrink-0 rounded-full bg-surface-700 px-2.5 py-0.5 text-sm text-slate-400">
+                    {t('channels.adultLockedHint')}
                   </span>
                 </div>
               </Focusable>
-            ))
-          )}
-          {!catalogLoading && sectionCategories.length > 40 && (
-            <p className="mt-2 px-2 text-sm text-slate-500">
-              +{(sectionCategories.length - 40).toLocaleString(numberLocale)}{' '}
-              {t('channels.moreCategories')}
-            </p>
-          )}
-        </div>
-
-        <Focusable
-          focusId="back-home"
-          focusGroup="categories"
-          className="channels-home-btn m-4 block"
-          onClick={() => navigate('/')}
-        >
-          <div className="rounded-2xl bg-surface-800 py-4 text-center text-xl font-medium text-slate-200 [.focused_&]:bg-surface-700">
-            {t('channels.home')}
+            )}
+            {!catalogLoading && visibleCategories.length > 40 && (
+              <p className="mt-2 px-2 text-sm text-slate-500">
+                +{(visibleCategories.length - 40).toLocaleString(numberLocale)}{' '}
+                {t('channels.moreCategories')}
+              </p>
+            )}
           </div>
-        </Focusable>
-      </aside>
 
-      {/* Main stage */}
-      <main className="channels-stage relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div
-          className={`channels-stage-hero pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b ${sectionMeta.accent} opacity-80`}
-        />
+          <Focusable
+            focusId="back-home"
+            focusGroup="categories"
+            className="channels-home-btn m-4 block"
+            onClick={() => navigate('/')}
+          >
+            <div className="rounded-2xl bg-surface-800 py-4 text-center text-xl font-medium text-slate-200 [.focused_&]:bg-surface-700">
+              {t('channels.home')}
+            </div>
+          </Focusable>
+        </aside>
 
-        <header className="relative z-10 flex items-end justify-between gap-6 px-10 pb-4 pt-8">
-          <div className="min-w-0">
-            <p className="text-base text-slate-300">
-              {searchQuery.trim()
-                ? t('channels.searchResults')
-                : activeCategory
-                  ? sectionLabel
-                  : t('channels.selectCategory')}
-            </p>
-            <h1 className="mt-1 truncate text-4xl font-bold text-white">
-              {searchQuery.trim()
-                ? `"${searchQuery.trim()}"`
-                : activeCategory
-                  ? shortCategoryName(activeCategory)
-                  : sectionLabel}
-              {indexing ? '…' : ''}
-            </h1>
+        {/* Main stage */}
+        <main className="channels-stage relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div
+            className={`channels-stage-hero pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b ${sectionMeta.accent} opacity-80`}
+          />
+
+          <header className="relative z-10 flex items-end justify-between gap-6 px-10 pb-4 pt-8">
+            <div className="min-w-0">
+              <p className="text-base text-slate-300">
+                {searchQuery.trim()
+                  ? t('channels.searchResults')
+                  : activeCategory
+                    ? sectionLabel
+                    : t('channels.selectCategory')}
+              </p>
+              <h1 className="mt-1 truncate text-4xl font-bold text-white">
+                {searchQuery.trim()
+                  ? `"${searchQuery.trim()}"`
+                  : activeCategory
+                    ? shortCategoryName(activeCategory)
+                    : sectionLabel}
+                {indexing ? '…' : ''}
+              </h1>
+            </div>
+            {showList && (
+              <span className="channels-count-badge shrink-0 rounded-full bg-surface-800 px-5 py-2 text-lg text-slate-300">
+                {listCount.toLocaleString(numberLocale)} {t('channels.results')}
+              </span>
+            )}
+          </header>
+
+          <div className="relative z-10 flex-1 overflow-hidden px-6 pb-6">
+            {!ready || catalogLoading || indexing ? (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-2xl text-slate-300">{t('channels.loading')}</p>
+              </div>
+            ) : showCategoryPicker ? (
+              <CategoryGrid
+                categories={visibleCategories}
+                section={contentSection}
+                onSelect={selectCategory}
+                adultLockedCount={adultLockedCount}
+                onUnlockAdult={openAdultDialog}
+              />
+            ) : !showList ? (
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-12 text-center">
+                <p className="text-3xl font-semibold text-white">{sectionLabel}</p>
+                <p className="max-w-2xl text-xl text-slate-400">{sectionHint}</p>
+              </div>
+            ) : listCount === 0 ? (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-2xl text-slate-400">{t('channels.noResults')}</p>
+              </div>
+            ) : (
+              <VirtualChannelList
+                count={listCount}
+                getChannel={getChannel}
+                onSelect={handleChannelSelect}
+                favorites={favorites}
+                showNumbers={showChannelNumbers && contentSection === 'live'}
+                focusGroup="channels"
+              />
+            )}
           </div>
-          {showList && (
-            <span className="channels-count-badge shrink-0 rounded-full bg-surface-800 px-5 py-2 text-lg text-slate-300">
-              {listCount.toLocaleString(numberLocale)} {t('channels.results')}
-            </span>
-          )}
-        </header>
-
-        <div className="relative z-10 flex-1 overflow-hidden px-6 pb-6">
-          {!ready || catalogLoading || indexing ? (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-2xl text-slate-300">{t('channels.loading')}</p>
-            </div>
-          ) : showCategoryPicker ? (
-            <CategoryGrid
-              categories={sectionCategories}
-              section={contentSection}
-              onSelect={selectCategory}
-            />
-          ) : !showList ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 px-12 text-center">
-              <p className="text-3xl font-semibold text-white">{sectionLabel}</p>
-              <p className="max-w-2xl text-xl text-slate-400">{sectionHint}</p>
-            </div>
-          ) : listCount === 0 ? (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-2xl text-slate-400">{t('channels.noResults')}</p>
-            </div>
-          ) : (
-            <VirtualChannelList
-              count={listCount}
-              getChannel={getChannel}
-              onSelect={handleChannelSelect}
-              favorites={favorites}
-              showNumbers={showChannelNumbers && contentSection === 'live'}
-              focusGroup="channels"
-            />
-          )}
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+      {adultDialog}
+    </>
   );
 }
 
@@ -573,15 +665,19 @@ function CategoryGrid({
   categories,
   section,
   onSelect,
+  adultLockedCount,
+  onUnlockAdult,
 }: {
   readonly categories: readonly SectionCategory[];
   readonly section: ContentSection;
   readonly onSelect: (name: string) => void;
+  readonly adultLockedCount: number;
+  readonly onUnlockAdult: () => void;
 }): ReactNode {
   const t = useT();
   const locale = useLocale();
   const numberLocale = locale === 'tr' ? 'tr-TR' : 'en-US';
-  if (categories.length === 0) {
+  if (categories.length === 0 && adultLockedCount === 0) {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-xl text-slate-400">{t('channels.noCategory')}</p>
@@ -619,6 +715,29 @@ function CategoryGrid({
             </div>
           </Focusable>
         ))}
+        {adultLockedCount > 0 && (
+          <Focusable
+            focusId={`cat-grid-${section}-adult-lock`}
+            focusGroup={`category-grid-${section}`}
+            focusPriority={0}
+            className="cat-grid-tile block h-36"
+            onClick={onUnlockAdult}
+          >
+            <div className="cat-grid-inner flex h-full flex-col justify-between rounded-2xl border border-dashed border-surface-600 bg-surface-800/50 p-5 transition-colors [.focused_&]:border-accent-400 [.focused_&]:bg-accent-500 [.focused_&]:text-white hover:bg-surface-700">
+              <div className="flex items-start justify-between gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface-700 text-sm font-bold text-accent-300 [.focused_&]:bg-white/20 [.focused_&]:text-white">
+                  🔞
+                </span>
+              </div>
+              <h3 className="line-clamp-2 text-xl font-semibold leading-snug text-white">
+                {t('channels.adultLocked')}
+              </h3>
+              <p className="text-sm text-slate-400 [.focused_&]:text-white/80">
+                {t('channels.adultLockedHint')}
+              </p>
+            </div>
+          </Focusable>
+        )}
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import {
   dominantSection,
   emptyCatalog,
   groupTotal,
+  isAdultCategory,
   isStrongLiveName,
   isStrongMovieName,
   isStrongSeriesName,
@@ -99,9 +100,7 @@ class ChannelSessionStoreImpl {
    */
   findNeighbor(channelId: ChannelId | string, direction: 1 | -1): Channel | null {
     const list =
-      this.zapIndices.length > 0
-        ? this.zapIndices
-        : this.indicesForChannelGroup(channelId);
+      this.zapIndices.length > 0 ? this.zapIndices : this.indicesForChannelGroup(channelId);
 
     if (list.length === 0) return null;
 
@@ -161,9 +160,7 @@ class ChannelSessionStoreImpl {
     groupName: string,
     section?: ContentSection | null,
   ): Promise<readonly number[]> {
-    const key = section
-      ? `${section}::${groupName.toLowerCase()}`
-      : groupName.toLowerCase();
+    const key = section ? `${section}::${groupName.toLowerCase()}` : groupName.toLowerCase();
 
     const cache = section ? this.sectionGroupIndices : this.groupIndices;
     const cached = cache.get(key);
@@ -190,6 +187,43 @@ class ChannelSessionStoreImpl {
 
     if (this.channels === channels) {
       cache.set(key, results);
+    }
+    return results;
+  }
+
+  /**
+   * All indices for a section, optionally excluding +18/adult-tagged groups.
+   * Used when the adult-content lock is active and no category/search filter
+   * is selected, so the small-playlist "show everything" fast path can't
+   * leak locked categories.
+   */
+  async collectSectionIndices(
+    section: ContentSection,
+    excludeAdult: boolean,
+  ): Promise<readonly number[]> {
+    const key = `__section::${section}::${excludeAdult ? 'noadult' : 'all'}`;
+    const cached = this.sectionGroupIndices.get(key);
+    if (cached) return cached;
+
+    const results: number[] = [];
+    const channels = this.channels;
+    const chunk = 8_000;
+
+    for (let i = 0; i < channels.length; i++) {
+      const ch = channels[i];
+      if (!ch) continue;
+      if (classifyChannel(ch) !== section) continue;
+      if (excludeAdult && isAdultCategory(ch.group)) continue;
+      results.push(i);
+
+      if (i > 0 && i % chunk === 0) {
+        await yieldToMain();
+        if (this.channels !== channels) return results;
+      }
+    }
+
+    if (this.channels === channels) {
+      this.sectionGroupIndices.set(key, results);
     }
     return results;
   }
@@ -271,40 +305,33 @@ class ChannelSessionStoreImpl {
     for (const [name, stats] of groupStats) {
       const total = groupTotal(stats);
       if (total <= 0) continue;
+      const adult = isAdultCategory(name);
 
       // Film / dizi labels first (Turkish İ: FİLM / DİZİ) — never pin these to Live.
       if (isStrongSeriesName(name)) {
-        series.push({ name, channelCount: total, section: 'series' });
+        series.push({ name, channelCount: total, section: 'series', adult });
         continue;
       }
       if (isStrongMovieName(name)) {
-        movie.push({ name, channelCount: total, section: 'movie' });
+        movie.push({ name, channelCount: total, section: 'movie', adult });
         continue;
       }
       if (isStrongLiveName(name)) {
-        live.push({ name, channelCount: total, section: 'live' });
+        live.push({ name, channelCount: total, section: 'live', adult });
         continue;
       }
 
       // Ambiguous group: place only where streams actually belong.
       // Live tab must not inherit VOD leftovers.
       if (stats.series > 0 && categoryAllowedInSection(name, 'series')) {
-        series.push({ name, channelCount: stats.series, section: 'series' });
+        series.push({ name, channelCount: stats.series, section: 'series', adult });
       }
       if (stats.movie > 0 && categoryAllowedInSection(name, 'movie')) {
-        movie.push({ name, channelCount: stats.movie, section: 'movie' });
+        movie.push({ name, channelCount: stats.movie, section: 'movie', adult });
       }
-      if (
-        stats.live > 0 &&
-        categoryAllowedInSection(name, 'live') &&
-        !isVodLabeledCategory(name)
-      ) {
-        live.push({ name, channelCount: stats.live, section: 'live' });
-      } else if (
-        stats.live === 0 &&
-        stats.movie === 0 &&
-        stats.series === 0
-      ) {
+      if (stats.live > 0 && categoryAllowedInSection(name, 'live') && !isVodLabeledCategory(name)) {
+        live.push({ name, channelCount: stats.live, section: 'live', adult });
+      } else if (stats.live === 0 && stats.movie === 0 && stats.series === 0) {
         // unreachable — total > 0
       } else if (
         // No section matched; fall back by dominant (still never VOD→Live)
@@ -313,11 +340,11 @@ class ChannelSessionStoreImpl {
       ) {
         const named = dominantSection(stats, name);
         if (named === 'live' && stats.live > 0) {
-          live.push({ name, channelCount: stats.live, section: 'live' });
+          live.push({ name, channelCount: stats.live, section: 'live', adult });
         } else if (named === 'movie' && stats.movie > 0) {
-          movie.push({ name, channelCount: stats.movie, section: 'movie' });
+          movie.push({ name, channelCount: stats.movie, section: 'movie', adult });
         } else if (named === 'series' && stats.series > 0) {
-          series.push({ name, channelCount: stats.series, section: 'series' });
+          series.push({ name, channelCount: stats.series, section: 'series', adult });
         }
       }
     }
@@ -348,9 +375,7 @@ class ChannelSessionStoreImpl {
     const liveSorted = sortCats(live);
     const strongLive = liveSorted.filter((c) => isStrongLiveName(c.name));
     const liveFinal =
-      strongLive.length >= 2
-        ? strongLive
-        : liveSorted.filter((c) => !isVodLabeledCategory(c.name));
+      strongLive.length >= 2 ? strongLive : liveSorted.filter((c) => !isVodLabeledCategory(c.name));
 
     this.catalog = {
       live: liveFinal,

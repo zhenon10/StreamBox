@@ -7,10 +7,7 @@ import { AndroidIconRail, AndroidTopBar } from './AndroidChrome';
 import { PosterGrid, channelToPoster } from './PosterGrid';
 import type { Channel } from '@/domain/entities';
 import type { ContentSection, SectionCategory } from '@/domain/content/contentSection';
-import {
-  groupChannelsIntoSeries,
-  type SeriesShow,
-} from '@/domain/content/seriesGroup';
+import { groupChannelsIntoSeries, type SeriesShow } from '@/domain/content/seriesGroup';
 import { platform } from '@/application/di/container';
 import { useT } from '@/i18n/useT';
 import { useListNavigation } from '@/ui/navigation/NavigationProvider';
@@ -22,6 +19,8 @@ interface AndroidBrowseViewProps {
   readonly expiresLabel?: string | undefined;
   readonly licensed: boolean;
   readonly categories: readonly SectionCategory[];
+  readonly adultLockedCount: number;
+  readonly onUnlockAdult: () => void;
   readonly activeCategory: string | null;
   readonly searchQuery: string;
   readonly onSearch: (value: string) => void;
@@ -43,6 +42,8 @@ export function AndroidBrowseView({
   expiresLabel,
   licensed,
   categories,
+  adultLockedCount,
+  onUnlockAdult,
   activeCategory,
   searchQuery,
   onSearch,
@@ -100,14 +101,12 @@ export function AndroidBrowseView({
     if (openSeries && seasons.length > 1) {
       return seasons.map((_, index) => `and-season-${String(index)}`);
     }
-    return categories.map((_, index) => `and-cat-${String(index)}`);
-  }, [categories, openSeries, seasons]);
+    const base = categories.map((_, index) => `and-cat-${String(index)}`);
+    return adultLockedCount > 0 && !openSeries ? [...base, 'and-adult-lock'] : base;
+  }, [categories, openSeries, seasons, adultLockedCount]);
   useListNavigation('and-cats', catIds, 'vertical');
 
-  const favSet = useMemo(
-    () => (favorites.length > 0 ? new Set(favorites) : null),
-    [favorites],
-  );
+  const favSet = useMemo(() => (favorites.length > 0 ? new Set(favorites) : null), [favorites]);
 
   const episodeCountLabel = (n: number): string =>
     t('channels.episodeCount').replace('{n}', String(n));
@@ -226,6 +225,20 @@ export function AndroidBrowseView({
                     </Focusable>
                   );
                 })}
+            {!openSeries && adultLockedCount > 0 && (
+              <Focusable
+                focusId="and-adult-lock"
+                focusGroup="and-cats"
+                focusPriority={0}
+                className="and-cat"
+                onClick={onUnlockAdult}
+              >
+                <div className="and-cat-inner">
+                  <span className="and-cat-name">{t('channels.adultLocked')}</span>
+                  <span className="and-cat-count">{t('channels.adultLockedHint')}</span>
+                </div>
+              </Focusable>
+            )}
           </div>
         </aside>
 
@@ -323,9 +336,7 @@ export function AndroidBrowseView({
             </div>
             <div className="and-epg">
               <p className="and-epg-title">{t('channels.tvPrograms')}</p>
-              <p className="and-epg-sub">
-                {preview ? preview.name : t('channels.selectChannel')}
-              </p>
+              <p className="and-epg-sub">{preview ? preview.name : t('channels.selectChannel')}</p>
             </div>
           </aside>
         )}

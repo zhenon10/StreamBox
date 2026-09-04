@@ -62,11 +62,24 @@ const PIPE_LIVE =
 const TRIANGLE_LIVE =
   /^[►▶➢➤▸➔→]\s*(ulusal|yerel|spor|sport|haber|news|belgesel|canli|live|radyo|radio|muzik|music|dini|cocuk|kids|raw)/;
 
-const LIVE_KIDS_TV =
-  /\b(cocuk\s*tv|kids\s*tv|cartoon\s*network|nick(?:elodeon)?)\b/;
+const LIVE_KIDS_TV = /\b(cocuk\s*tv|kids\s*tv|cartoon\s*network|nick(?:elodeon)?)\b/;
 
 const YEAR_TOKEN = /\b(19|20)\d{2}\b/;
 const YEAR_VOD_HINT = /yabanc|yerli|koleksiyon|collection|boxset|box\s*set/;
+
+/** +18 / adult category markers — kept locked behind a PIN until unlocked. */
+const ADULT_GROUP =
+  /(?:^|[\s|/_►›»→:.-])(adult|adults|xxx|erotik|erotic|erotica|porn|porno|playboy|brazzers|hustler|yetiskin|seks|sex|fetish|milf)(?:\b|$)/;
+const ADULT_AGE_MARK = /(?:^|[\s|/_►›»→:.-])\+?18\+?(?:[\s|/_►›»→:.-]|$)/;
+
+/** True when a raw group-title marks the category as adult-only content. */
+export function isAdultCategory(group: string): boolean {
+  const g = normalizeCategoryKey(group);
+  if (!g) return false;
+  if (ADULT_GROUP.test(g)) return true;
+  if (ADULT_AGE_MARK.test(g)) return true;
+  return false;
+}
 
 /**
  * Classify a single channel.
@@ -247,9 +260,7 @@ export function dominantSection(
   return best;
 }
 
-export function groupTotal(
-  counts: Readonly<Record<ContentSection, number>>,
-): number {
+export function groupTotal(counts: Readonly<Record<ContentSection, number>>): number {
   return counts.live + counts.movie + counts.series;
 }
 
@@ -257,6 +268,8 @@ export interface SectionCategory {
   readonly name: string;
   readonly channelCount: number;
   readonly section: ContentSection;
+  /** +18 / adult category — hidden behind the PIN lock until unlocked. */
+  readonly adult: boolean;
 }
 
 export interface ContentCatalog {

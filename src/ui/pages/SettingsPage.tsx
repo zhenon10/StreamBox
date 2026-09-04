@@ -9,16 +9,12 @@ import { DEFAULT_SETTINGS } from '@/domain/entities';
 import { EventKind } from '@/domain/events/ApplicationEvent';
 import type { ThemeDefinition } from '@/application/theme/ThemeService';
 import type { LicenseSnapshot } from '@/domain/license/types';
-import {
-  clearLicense,
-  getStoredLicense,
-} from '@/application/usecases/licenseUseCases';
-import {
-  formatPurchaseCode,
-  getOrCreateDeviceId,
-} from '@/infrastructure/license/DeviceIdentity';
+import { clearLicense, getStoredLicense } from '@/application/usecases/licenseUseCases';
+import { formatPurchaseCode, getOrCreateDeviceId } from '@/infrastructure/license/DeviceIdentity';
 import { APP_LOCALES, LOCALE_LABELS, type AppLocale, type MessageKey } from '@/i18n';
 import { useLocale, useT } from '@/i18n/useT';
+import { AdultPinDialog } from '@/ui/components/AdultPinDialog';
+import { adultLockSession } from '@/application/security/adultLockSession';
 
 interface SettingItem {
   readonly id: Exclude<keyof AppSettings, 'locale'>;
@@ -85,6 +81,12 @@ const SETTING_ITEMS: SettingItem[] = [
     descriptionKey: 'settings.hwAccelDesc',
     type: 'boolean',
   },
+  {
+    id: 'adultLockEnabled',
+    labelKey: 'settings.adultLockEnabled',
+    descriptionKey: 'settings.adultLockEnabledDesc',
+    type: 'boolean',
+  },
 ];
 
 export function SettingsPage(): ReactNode {
@@ -98,6 +100,7 @@ export function SettingsPage(): ReactNode {
   const [license, setLicense] = useState<LicenseSnapshot | null>(null);
   const [deviceId, setDeviceId] = useState('');
   const [licenseBusy, setLicenseBusy] = useState(false);
+  const [adultPinDialogOpen, setAdultPinDialogOpen] = useState(false);
 
   useEffect(() => {
     void repositories.settings.get().then((loaded) => {
@@ -124,10 +127,7 @@ export function SettingsPage(): ReactNode {
     setSaved(false);
   };
 
-  const handleNumberChange = (
-    key: Exclude<keyof AppSettings, 'locale'>,
-    delta: number,
-  ): void => {
+  const handleNumberChange = (key: Exclude<keyof AppSettings, 'locale'>, delta: number): void => {
     setLocalSettings((prev) => {
       const current = prev[key];
       if (typeof current !== 'number') return prev;
@@ -185,6 +185,26 @@ export function SettingsPage(): ReactNode {
     }
   };
 
+  const handleAdultPinSubmit = (pin: string): null => {
+    const nextSettings = { ...localSettings, adultPin: pin };
+    setLocalSettings(nextSettings);
+    setSettings(nextSettings);
+    void repositories.settings.save(nextSettings);
+    adultLockSession.lock();
+    setAdultPinDialogOpen(false);
+    setSaved(false);
+    return null;
+  };
+
+  const handleAdultPinRemove = (): void => {
+    const nextSettings = { ...localSettings, adultPin: null };
+    setLocalSettings(nextSettings);
+    setSettings(nextSettings);
+    void repositories.settings.save(nextSettings);
+    adultLockSession.lock();
+    setSaved(false);
+  };
+
   const dateLocale = locale === 'tr' ? 'tr-TR' : 'en-US';
 
   return (
@@ -203,16 +223,18 @@ export function SettingsPage(): ReactNode {
 
       <div className="settings-body scrollbar-hidden min-h-0 min-w-0 flex-1 overflow-y-auto px-16 py-8">
         <div className="settings-stack mx-auto max-w-4xl space-y-4">
-          <LanguageSelector
-            value={localSettings.locale}
-            onChange={handleLocale}
-          />
+          <LanguageSelector value={localSettings.locale} onChange={handleLocale} />
           <LicensePanel
             license={license}
             deviceId={deviceId}
             busy={licenseBusy}
             dateLocale={dateLocale}
             onClear={() => void handleClearLicense()}
+          />
+          <AdultPinPanel
+            hasPin={Boolean(localSettings.adultPin)}
+            onChange={() => setAdultPinDialogOpen(true)}
+            onRemove={handleAdultPinRemove}
           />
           <ThemeSelector />
           {SETTING_ITEMS.map((item, index) => (
@@ -313,6 +335,13 @@ export function SettingsPage(): ReactNode {
 
         {saved && <span className="text-lg text-success-500">{t('settings.saved')}</span>}
       </footer>
+      {adultPinDialogOpen && (
+        <AdultPinDialog
+          mode="set"
+          onCancel={() => setAdultPinDialogOpen(false)}
+          onSubmit={handleAdultPinSubmit}
+        />
+      )}
     </div>
   );
 }
@@ -338,9 +367,7 @@ function LanguageSelector({
           >
             <div
               className={`rounded-xl px-6 py-3 text-lg transition-colors [.focused_&]:ring-2 [.focused_&]:ring-accent-500 ${
-                value === loc
-                  ? 'bg-accent-500/30 text-accent-300'
-                  : 'bg-surface-800 text-slate-300'
+                value === loc ? 'bg-accent-500/30 text-accent-300' : 'bg-surface-800 text-slate-300'
               }`}
             >
               {LOCALE_LABELS[loc]}
@@ -411,6 +438,40 @@ function LicensePanel({
           </Focusable>
         </div>
       )}
+    </div>
+  );
+}
+
+function AdultPinPanel({
+  hasPin,
+  onChange,
+  onRemove,
+}: {
+  readonly hasPin: boolean;
+  readonly onChange: () => void;
+  readonly onRemove: () => void;
+}): ReactNode {
+  const t = useT();
+  return (
+    <div className="settings-panel mb-8 rounded-2xl bg-surface-900 px-8 py-6">
+      <h3 className="mb-2 text-2xl font-semibold text-white">{t('settings.adultPin')}</h3>
+      <p className="mb-4 text-lg text-slate-400">
+        {hasPin ? t('settings.adultPinSet') : t('settings.adultPinNotSet')}
+      </p>
+      <div className="flex flex-wrap gap-4">
+        <Focusable focusId="adult-pin-change" focusGroup="settings-adult-pin" onClick={onChange}>
+          <span className="rounded-xl bg-surface-800 px-6 py-3 text-lg text-white [.focused_&]:bg-surface-700">
+            {hasPin ? t('settings.adultPinChange') : t('settings.adultPinCreate')}
+          </span>
+        </Focusable>
+        {hasPin && (
+          <Focusable focusId="adult-pin-remove" focusGroup="settings-adult-pin" onClick={onRemove}>
+            <span className="rounded-xl bg-surface-800 px-6 py-3 text-lg text-white [.focused_&]:bg-error-500">
+              {t('settings.adultPinRemove')}
+            </span>
+          </Focusable>
+        )}
+      </div>
     </div>
   );
 }

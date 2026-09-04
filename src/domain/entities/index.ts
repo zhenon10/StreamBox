@@ -65,6 +65,10 @@ export interface AppSettings {
   readonly enableHardwareAcceleration: boolean;
   /** UI language */
   readonly locale: 'tr' | 'en';
+  /** Hide +18 / adult categories behind a PIN until unlocked for the session. */
+  readonly adultLockEnabled: boolean;
+  /** PIN protecting adult categories, digits only. Null = not set yet. */
+  readonly adultPin: string | null;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -76,16 +80,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showChannelNumbers: true,
   enableHardwareAcceleration: true,
   locale: 'tr',
+  adultLockEnabled: true,
+  adultPin: null,
 };
 
 export type PlaybackState =
-  | 'idle'
-  | 'loading'
-  | 'playing'
-  | 'paused'
-  | 'buffering'
-  | 'error'
-  | 'reconnecting';
+  'idle' | 'loading' | 'playing' | 'paused' | 'buffering' | 'error' | 'reconnecting';
 
 export interface PlaybackError {
   readonly code: string;
