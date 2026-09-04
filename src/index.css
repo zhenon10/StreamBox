@@ -896,8 +896,7 @@ html[data-ui='touch'] .list-page .flex-1 {
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  background:
-    radial-gradient(120% 80% at 50% -10%, #152238 0%, var(--and-bg) 55%);
+  background: radial-gradient(120% 80% at 50% -10%, #152238 0%, var(--and-bg) 55%);
   color: #f4f7fb;
 }
 
@@ -1234,6 +1233,13 @@ html[data-ui='touch'] .list-page .flex-1 {
   color: #111;
 }
 
+/* Locked +18 tile — dashed border sets it apart from real categories,
+   not just the emoji in its label. */
+.and-cat-inner.is-locked {
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+  background: transparent;
+}
+
 .and-cat-name {
   display: block;
   overflow: hidden;
@@ -1461,4 +1467,3 @@ html[data-ui='touch'] .and-main .scrollbar-hidden {
 html[data-ui='touch'] .and-poster {
   min-height: min-content;
 }
-

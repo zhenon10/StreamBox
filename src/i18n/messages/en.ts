@@ -91,6 +91,7 @@ export const en: Messages = {
   'channels.adultLockedHint': 'Unlock with PIN',
   'adultPin.titleEnter': 'Enter PIN',
   'adultPin.subtitleEnter': 'This category is locked. Enter the PIN to continue.',
+  'adultPin.subtitleVerify': 'Enter your current PIN to continue.',
   'adultPin.titleSet': 'Create a PIN',
   'adultPin.subtitleSet': 'Set a PIN to protect adult content categories.',
   'adultPin.placeholder': 'PIN',

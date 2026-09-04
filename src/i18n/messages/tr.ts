@@ -90,6 +90,7 @@ export const tr: Messages = {
   'channels.adultLockedHint': 'Şifre ile aç',
   'adultPin.titleEnter': 'Şifre Girin',
   'adultPin.subtitleEnter': 'Bu kategori kilitli. Devam etmek için şifreyi girin.',
+  'adultPin.subtitleVerify': 'Devam etmek için mevcut şifrenizi girin.',
   'adultPin.titleSet': 'Şifre Oluştur',
   'adultPin.subtitleSet': 'Yetişkin içerik kategorilerini korumak için bir şifre belirleyin.',
   'adultPin.placeholder': 'Şifre',

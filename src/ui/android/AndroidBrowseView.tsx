@@ -233,7 +233,7 @@ export function AndroidBrowseView({
                 className="and-cat"
                 onClick={onUnlockAdult}
               >
-                <div className="and-cat-inner">
+                <div className="and-cat-inner is-locked">
                   <span className="and-cat-name">{t('channels.adultLocked')}</span>
                   <span className="and-cat-count">{t('channels.adultLockedHint')}</span>
                 </div>

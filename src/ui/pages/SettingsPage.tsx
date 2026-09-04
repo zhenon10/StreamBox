@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Focusable } from '@/ui/components/Focusable';
 import { useRouteFocus } from '@/ui/navigation/NavigationProvider';
@@ -100,7 +100,11 @@ export function SettingsPage(): ReactNode {
   const [license, setLicense] = useState<LicenseSnapshot | null>(null);
   const [deviceId, setDeviceId] = useState('');
   const [licenseBusy, setLicenseBusy] = useState(false);
-  const [adultPinDialogOpen, setAdultPinDialogOpen] = useState(false);
+  // Changing/removing an existing PIN must verify the current one first —
+  // otherwise anyone who can reach Settings (not just whoever knows the PIN)
+  // could clear the adult-content lock, defeating its purpose.
+  const [adultPinFlow, setAdultPinFlow] = useState<'idle' | 'verify' | 'set'>('idle');
+  const adultPinVerifyPurpose = useRef<'change' | 'remove'>('change');
 
   useEffect(() => {
     void repositories.settings.get().then((loaded) => {
@@ -185,24 +189,46 @@ export function SettingsPage(): ReactNode {
     }
   };
 
+  const closeAdultPinFlow = (): void => {
+    setAdultPinFlow('idle');
+  };
+
+  const handleAdultPinChangeClick = (): void => {
+    // No PIN yet — nothing to verify, go straight to creating one.
+    setAdultPinFlow(localSettings.adultPin ? 'verify' : 'set');
+    adultPinVerifyPurpose.current = 'change';
+  };
+
+  const handleAdultPinRemoveClick = (): void => {
+    setAdultPinFlow('verify');
+    adultPinVerifyPurpose.current = 'remove';
+  };
+
+  const handleAdultPinVerify = (pin: string): 'wrong' | null => {
+    if (pin !== localSettings.adultPin) return 'wrong';
+    if (adultPinVerifyPurpose.current === 'remove') {
+      const nextSettings = { ...localSettings, adultPin: null };
+      setLocalSettings(nextSettings);
+      setSettings(nextSettings);
+      void repositories.settings.save(nextSettings);
+      adultLockSession.lock();
+      setSaved(false);
+      setAdultPinFlow('idle');
+      return null;
+    }
+    setAdultPinFlow('set');
+    return null;
+  };
+
   const handleAdultPinSubmit = (pin: string): null => {
     const nextSettings = { ...localSettings, adultPin: pin };
     setLocalSettings(nextSettings);
     setSettings(nextSettings);
     void repositories.settings.save(nextSettings);
     adultLockSession.lock();
-    setAdultPinDialogOpen(false);
+    setAdultPinFlow('idle');
     setSaved(false);
     return null;
-  };
-
-  const handleAdultPinRemove = (): void => {
-    const nextSettings = { ...localSettings, adultPin: null };
-    setLocalSettings(nextSettings);
-    setSettings(nextSettings);
-    void repositories.settings.save(nextSettings);
-    adultLockSession.lock();
-    setSaved(false);
   };
 
   const dateLocale = locale === 'tr' ? 'tr-TR' : 'en-US';
@@ -233,8 +259,8 @@ export function SettingsPage(): ReactNode {
           />
           <AdultPinPanel
             hasPin={Boolean(localSettings.adultPin)}
-            onChange={() => setAdultPinDialogOpen(true)}
-            onRemove={handleAdultPinRemove}
+            onChange={handleAdultPinChangeClick}
+            onRemove={handleAdultPinRemoveClick}
           />
           <ThemeSelector />
           {SETTING_ITEMS.map((item, index) => (
@@ -335,12 +361,16 @@ export function SettingsPage(): ReactNode {
 
         {saved && <span className="text-lg text-success-500">{t('settings.saved')}</span>}
       </footer>
-      {adultPinDialogOpen && (
+      {adultPinFlow === 'verify' && (
         <AdultPinDialog
-          mode="set"
-          onCancel={() => setAdultPinDialogOpen(false)}
-          onSubmit={handleAdultPinSubmit}
+          mode="enter"
+          subtitle={t('adultPin.subtitleVerify')}
+          onCancel={closeAdultPinFlow}
+          onSubmit={handleAdultPinVerify}
         />
+      )}
+      {adultPinFlow === 'set' && (
+        <AdultPinDialog mode="set" onCancel={closeAdultPinFlow} onSubmit={handleAdultPinSubmit} />
       )}
     </div>
   );

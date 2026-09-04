@@ -38,6 +38,7 @@ export type MessageKey =
   | 'channels.adultLockedHint'
   | 'adultPin.titleEnter'
   | 'adultPin.subtitleEnter'
+  | 'adultPin.subtitleVerify'
   | 'adultPin.titleSet'
   | 'adultPin.subtitleSet'
   | 'adultPin.placeholder'
