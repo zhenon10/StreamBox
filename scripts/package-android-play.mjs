@@ -11,7 +11,9 @@ import { spawn } from 'node:child_process';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const androidDir = join(root, 'android');
 const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const gradleCmd = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
+// Bare "gradlew.bat" isn't always resolved from cwd by cmd.exe (depends on
+// NoDefaultCurrentDirectoryInExePath) — force the explicit relative path.
+const gradleCmd = process.platform === 'win32' ? '.\\gradlew.bat' : './gradlew';
 
 function run(command, args, cwd = root) {
   return new Promise((resolve, reject) => {
