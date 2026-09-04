@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initializePlatform, getPlatform } from '@/platform';
+import { isDesktopUi } from '@/platform/detectPlatform';
 import { registerServices, services, repositories, TOKENS } from '@/application/di/container';
 import { clearLegacyPlaylistStorage } from '@/infrastructure/storage/clearLegacyStorage';
 import { usePlaylistStore } from '@/application/stores/playlistStore';
@@ -40,6 +41,20 @@ async function bootstrap(): Promise<void> {
 
   perfMonitor.measure(MetricName.StartupTime, 'bootstrap-start', 'ms');
   logger.info('Bootstrap complete', 'Bootstrap');
+
+  if (isDesktopUi()) {
+    // Home's own listeners handle dropped .m3u files while it's mounted;
+    // this app-wide net just stops the webview from navigating away to
+    // display the raw dropped file on any other screen. Tauri's window
+    // has dragDropEnabled:false (tauri.conf.json) precisely so the
+    // standard DOM drag events below fire instead of Tauri's own.
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+    });
+  }
 
   const root = document.getElementById('root');
   if (!root) throw new Error('Root element not found');

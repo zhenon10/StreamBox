@@ -34,6 +34,7 @@ export const en: Messages = {
   'home.openLive': 'Live TV',
   'home.openMovies': 'Movies',
   'home.openSeries': 'Series',
+  'home.dropHint': 'Drop your M3U / M3U8 file here',
   'menu.checkLicense': 'Check license',
   'menu.checkLicenseSub': 'Refresh after buying on the website',
   'menu.checkLicenseSubPlay': 'Bind an existing license to this device',

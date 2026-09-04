@@ -20,7 +20,10 @@ import { preferXtreamM3uPlus } from '@/infrastructure/network/fetchUrl';
 import { yieldToMain } from '@/infrastructure/async/yieldToMain';
 import type { IChannelIndex } from '@/domain/repositories';
 import type { FilePickerService, NetworkService } from '@/platform/interfaces';
-import { ContentSourceType, type IContentProviderRegistry } from '@/domain/content/IContentProvider';
+import {
+  ContentSourceType,
+  type IContentProviderRegistry,
+} from '@/domain/content/IContentProvider';
 import { EventKind, type IEventPublisher } from '@/domain/events/ApplicationEvent';
 import type { PerformanceMonitor } from '@/application/performance/PerformanceMonitor';
 import { MetricName } from '@/application/performance/PerformanceMonitor';
@@ -76,7 +79,14 @@ export async function loadPlaylistFromFile(
           { sourceType: ContentSourceType.M3UFile, location: '' },
           onProgress,
         );
-        return savePlaylistFromContent(deps, result.name, result.source, result.channels, result.categories, onProgress);
+        return savePlaylistFromContent(
+          deps,
+          result.name,
+          result.source,
+          result.channels,
+          result.categories,
+          onProgress,
+        );
       } catch (error) {
         deps.eventPublisher?.publish(EventKind.PlaylistLoadFailed, {
           source: 'file',
@@ -101,6 +111,22 @@ export async function loadPlaylistFromFile(
   return buildAndSavePlaylist(deps, source, result.content, result.name, onProgress);
 }
 
+/**
+ * Same as loadPlaylistFromFile, but for a file whose name + content is
+ * already known (Windows/browser desktop drag-and-drop) — skips the OS
+ * file-picker dialog entirely.
+ */
+export async function loadPlaylistFromDroppedFile(
+  deps: LoadPlaylistFromFileDeps,
+  name: string,
+  content: string,
+  onProgress?: (progress: LoadPlaylistProgress) => void,
+): Promise<Playlist> {
+  deps.performanceMonitor?.mark('playlist-load-start');
+  const source: PlaylistSource = { type: 'file', label: name, location: name };
+  return buildAndSavePlaylist(deps, source, content, name, onProgress);
+}
+
 export async function loadPlaylistFromUrl(
   deps: LoadPlaylistFromUrlDeps,
   url: string,
@@ -117,7 +143,14 @@ export async function loadPlaylistFromUrl(
           { sourceType: ContentSourceType.M3UUrl, location: normalizedUrl },
           onProgress,
         );
-        return savePlaylistFromContent(deps, result.name, result.source, result.channels, result.categories, onProgress);
+        return savePlaylistFromContent(
+          deps,
+          result.name,
+          result.source,
+          result.channels,
+          result.categories,
+          onProgress,
+        );
       } catch (error) {
         deps.eventPublisher?.publish(EventKind.PlaylistLoadFailed, {
           source: normalizedUrl,

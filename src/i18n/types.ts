@@ -29,6 +29,7 @@ export type MessageKey =
   | 'home.openLive'
   | 'home.openMovies'
   | 'home.openSeries'
+  | 'home.dropHint'
   | 'channels.tvPrograms'
   | 'channels.selectChannel'
   | 'channels.total'

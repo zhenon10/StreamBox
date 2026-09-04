@@ -8,6 +8,7 @@ import { usePlaylistStore } from '@/application/stores/playlistStore';
 import { channelIndex, repositories, platform, services, TOKENS } from '@/application/di/container';
 import { yieldToMain } from '@/infrastructure/async/yieldToMain';
 import {
+  loadPlaylistFromDroppedFile,
   loadPlaylistFromFile,
   loadPlaylistFromUrl,
 } from '@/application/usecases/playlistUseCases';
@@ -20,12 +21,9 @@ import {
 import { playlistGroupsNeedRepair } from '@/domain/content/contentSection';
 import { xtreamUrlNeedsM3uPlus } from '@/infrastructure/network/fetchUrl';
 import type { LicenseSnapshot } from '@/domain/license/types';
-import {
-  formatPurchaseCode,
-  getOrCreateDeviceId,
-} from '@/infrastructure/license/DeviceIdentity';
+import { formatPurchaseCode, getOrCreateDeviceId } from '@/infrastructure/license/DeviceIdentity';
 import { isPlayStoreBuild, playlistRequiresLicense } from '@/domain/license/storeBuild';
-import { isShellUi } from '@/platform/detectPlatform';
+import { isDesktopUi, isShellUi } from '@/platform/detectPlatform';
 import { AndroidHomeLayout } from '@/ui/android/AndroidHomeLayout';
 import type { ContentSection } from '@/domain/content/contentSection';
 import type { PlaylistId } from '@/domain/entities';
@@ -169,10 +167,7 @@ export function HomePage(): ReactNode {
   const locale = useLocale();
   const [licenseSnapshot, setLicenseSnapshot] = useState<LicenseSnapshot | null>(null);
   const [licenseChecked, setLicenseChecked] = useState(false);
-  const menuItems = useMemo(
-    () => menuItemsForLicense(Boolean(licenseSnapshot)),
-    [licenseSnapshot],
-  );
+  const menuItems = useMemo(() => menuItemsForLicense(Boolean(licenseSnapshot)), [licenseSnapshot]);
   const homeGraph = useMemo(
     () => buildHomeGraph(menuItems, Boolean(licenseSnapshot)),
     [licenseSnapshot, menuItems],
@@ -245,14 +240,7 @@ export function HomePage(): ReactNode {
         setLoading(false);
       }
     },
-    [
-      navigate,
-      setCurrentPlaylist,
-      setLoadError,
-      setLoadProgress,
-      setLoading,
-      setRecentPlaylists,
-    ],
+    [navigate, setCurrentPlaylist, setLoadError, setLoadProgress, setLoading, setRecentPlaylists],
   );
 
   const restoreLastPlaylist = useCallback(async (): Promise<void> => {
@@ -305,13 +293,7 @@ export function HomePage(): ReactNode {
     } catch {
       /* restore is best-effort */
     }
-  }, [
-    setCurrentPlaylist,
-    setLoadError,
-    setLoadProgress,
-    setLoading,
-    setRecentPlaylists,
-  ]);
+  }, [setCurrentPlaylist, setLoadError, setLoadProgress, setLoading, setRecentPlaylists]);
 
   useEffect(() => {
     void (async () => {
@@ -374,6 +356,95 @@ export function HomePage(): ReactNode {
     }
   }, [navigate, setCurrentPlaylist, setLoadError, setLoadProgress, setLoading, setRecentPlaylists]);
 
+  // Windows/browser desktop: drop an .m3u/.m3u8 file anywhere on Home to
+  // load it, same destination as the "Open file" picker.
+  const handleDroppedFile = useCallback(
+    async (file: File) => {
+      setLoading(true);
+      setLoadError(null);
+      setLoadProgress(0);
+
+      const loadDeps = {
+        filePicker: platform.filePicker,
+        playlistRepo: repositories.playlists,
+        recentRepo: repositories.recentPlaylists,
+        channelIndex,
+        channelRepo: repositories.channels,
+        contentProviders: services.resolve(TOKENS.contentProviderRegistry),
+        eventPublisher: services.resolve(TOKENS.eventPublisher),
+        performanceMonitor: services.resolve(TOKENS.performanceMonitor),
+      };
+
+      try {
+        const content = await file.text();
+        const playlist = await loadPlaylistFromDroppedFile(
+          loadDeps,
+          file.name,
+          content,
+          (progress) => setLoadProgress(progress.loaded),
+        );
+        setCurrentPlaylist(playlist);
+        setLoading(false);
+        await yieldToMain();
+        const recent = await repositories.recentPlaylists.getRecent(10);
+        setRecentPlaylists(recent);
+        await yieldToMain();
+        navigate('/channels');
+      } catch (error) {
+        setLoadError(formatPlaylistLoadError(error));
+        setLoading(false);
+      }
+    },
+    [navigate, setCurrentPlaylist, setLoadError, setLoadProgress, setLoading, setRecentPlaylists],
+  );
+
+  const [dragActive, setDragActive] = useState(false);
+
+  useEffect(() => {
+    if (!isDesktopUi()) return;
+
+    const isM3uFile = (file: File): boolean => /\.m3u8?$/i.test(file.name);
+    const hasFiles = (e: DragEvent): boolean => Boolean(e.dataTransfer?.types.includes('Files'));
+    // Counter, not a boolean: dragenter/dragleave fire per child element as
+    // the pointer crosses them, so a plain flag flickers off mid-drag.
+    let depth = 0;
+
+    const onDragEnter = (e: DragEvent): void => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth++;
+      setDragActive(true);
+    };
+    const onDragOver = (e: DragEvent): void => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+    };
+    const onDragLeave = (e: DragEvent): void => {
+      if (!hasFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setDragActive(false);
+    };
+    const onDrop = (e: DragEvent): void => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      setDragActive(false);
+      const file = Array.from(e.dataTransfer?.files ?? []).find(isM3uFile);
+      if (file) void handleDroppedFile(file);
+    };
+
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onDrop);
+    };
+  }, [handleDroppedFile]);
+
   const handleLoadUrl = useCallback(async () => {
     if (!urlInput.trim()) return;
     setUrlDialogOpen(false);
@@ -410,9 +481,7 @@ export function HomePage(): ReactNode {
 
   const handleBuyOnSite = useCallback(() => {
     if (PLAY_STORE) return;
-    const url = deviceCode
-      ? `${BUY_SITE}?device=${encodeURIComponent(deviceCode)}`
-      : BUY_SITE;
+    const url = deviceCode ? `${BUY_SITE}?device=${encodeURIComponent(deviceCode)}` : BUY_SITE;
     try {
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch {
@@ -434,7 +503,7 @@ export function HomePage(): ReactNode {
       }
       const snapshot: LicenseSnapshot = {
         token: result.token,
-        deviceId: (await getOrCreateDeviceId(platform.storage)),
+        deviceId: await getOrCreateDeviceId(platform.storage),
         expiresAt: result.expiresAt,
         playlistUrl: result.playlistUrl,
         planName: result.planName,
@@ -592,151 +661,154 @@ export function HomePage(): ReactNode {
       </header>
 
       <div className="home-side min-h-0 min-w-0 overflow-hidden">
-      {licenseChecked && STORE_BUILD && (
-        <section className="home-device mx-16 mb-6">
-          <Focusable
-            focusId="device-card"
-            focusGroup="home-device"
-            focusPriority={16}
-            className="block w-full"
-            onClick={PLAY_STORE ? undefined : handleBuyOnSite}
-          >
-            <div className="rounded-2xl border border-white/10 bg-surface-900/80 px-8 py-6 [.focused_&]:border-accent-400">
-              <p className="text-sm font-medium uppercase tracking-wider text-accent-300">
-                {t('home.device')}
-              </p>
-              <p className="mt-2 font-mono text-4xl font-bold tracking-[0.18em] text-white">
-                {deviceCode || '…'}
-              </p>
-              <p className="home-device-hint mt-3 max-w-3xl text-base text-slate-400">
-                {t(PLAY_STORE ? 'home.deviceHintPlay' : 'home.deviceHint')}
-              </p>
-              {!PLAY_STORE && (
-                <p className="mt-2 text-lg text-accent-300">
-                  {t('home.buyOnSite')}: {t('home.buyUrl')}
-                </p>
-              )}
-            </div>
-          </Focusable>
-        </section>
-      )}
-
-      {isLoading && (
-        <div className="mx-16 mb-6 rounded-xl bg-surface-800 px-6 py-4">
-          <p className="text-lg text-accent-300">
-            {t('home.loadingPlaylist')} {loadProgress.toLocaleString(locale === 'tr' ? 'tr-TR' : 'en-US')}
-          </p>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-700">
-            <div className="h-full animate-pulse bg-accent-500" style={{ width: '100%' }} />
-          </div>
-        </div>
-      )}
-
-      {loadError && (
-        <div className="mx-16 mb-6 rounded-xl border-2 border-red-500 bg-red-950 px-6 py-4 text-lg text-white">
-          {loadError}
-        </div>
-      )}
-
-      {licenseSnapshot && (
-        <section className="home-license mx-16 mb-6">
-          <Focusable
-            focusId="license-open"
-            focusGroup="home-license"
-            focusPriority={15}
-            className="block w-full"
-            onClick={() => void handleOpenLicensedPlaylist()}
-          >
-            <div className="flex items-center justify-between rounded-2xl border border-accent-500/40 bg-accent-500/15 px-8 py-5 [.focused_&]:border-accent-400 [.focused_&]:bg-accent-500/25">
-              <div>
+        {licenseChecked && STORE_BUILD && (
+          <section className="home-device mx-16 mb-6">
+            <Focusable
+              focusId="device-card"
+              focusGroup="home-device"
+              focusPriority={16}
+              className="block w-full"
+              onClick={PLAY_STORE ? undefined : handleBuyOnSite}
+            >
+              <div className="rounded-2xl border border-white/10 bg-surface-900/80 px-8 py-6 [.focused_&]:border-accent-400">
                 <p className="text-sm font-medium uppercase tracking-wider text-accent-300">
-                  {t('home.licenseActive')} · {licenseSnapshot.planName}
+                  {t('home.device')}
                 </p>
-                <p className="mt-1 text-2xl font-semibold text-white">
-                  {licenseSnapshot.playlistUrl?.trim()
-                    ? t('home.openLicensed')
-                    : t('home.addPlaylist')}
+                <p className="mt-2 font-mono text-4xl font-bold tracking-[0.18em] text-white">
+                  {deviceCode || '…'}
                 </p>
-                <p className="mt-1 text-base text-slate-400">
-                  {t('home.expires')}: {expiresLabel}
+                <p className="home-device-hint mt-3 max-w-3xl text-base text-slate-400">
+                  {t(PLAY_STORE ? 'home.deviceHintPlay' : 'home.deviceHint')}
                 </p>
+                {!PLAY_STORE && (
+                  <p className="mt-2 text-lg text-accent-300">
+                    {t('home.buyOnSite')}: {t('home.buyUrl')}
+                  </p>
+                )}
               </div>
-              <span className="rounded-xl bg-accent-500 px-6 py-3 text-lg font-semibold text-white">
-                {licenseSnapshot.playlistUrl?.trim() ? t('home.open') : t('home.add')}
-              </span>
-            </div>
-          </Focusable>
-        </section>
-      )}
+            </Focusable>
+          </section>
+        )}
 
-      {licenseChecked && STORE_BUILD && !licenseSnapshot && (
-        <section className="home-license-required mx-16 mb-6 rounded-2xl border border-surface-600 bg-surface-900/80 px-8 py-5">
-          <p className="text-xl font-semibold text-white">{t('home.licenseRequired')}</p>
-          <p className="mt-1 text-base text-slate-400">
-            {t(PLAY_STORE ? 'home.licenseRequiredHintPlay' : 'home.licenseRequiredHint')}
-          </p>
-        </section>
-      )}
+        {isLoading && (
+          <div className="mx-16 mb-6 rounded-xl bg-surface-800 px-6 py-4">
+            <p className="text-lg text-accent-300">
+              {t('home.loadingPlaylist')}{' '}
+              {loadProgress.toLocaleString(locale === 'tr' ? 'tr-TR' : 'en-US')}
+            </p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-700">
+              <div className="h-full animate-pulse bg-accent-500" style={{ width: '100%' }} />
+            </div>
+          </div>
+        )}
+
+        {loadError && (
+          <div className="mx-16 mb-6 rounded-xl border-2 border-red-500 bg-red-950 px-6 py-4 text-lg text-white">
+            {loadError}
+          </div>
+        )}
+
+        {licenseSnapshot && (
+          <section className="home-license mx-16 mb-6">
+            <Focusable
+              focusId="license-open"
+              focusGroup="home-license"
+              focusPriority={15}
+              className="block w-full"
+              onClick={() => void handleOpenLicensedPlaylist()}
+            >
+              <div className="flex items-center justify-between rounded-2xl border border-accent-500/40 bg-accent-500/15 px-8 py-5 [.focused_&]:border-accent-400 [.focused_&]:bg-accent-500/25">
+                <div>
+                  <p className="text-sm font-medium uppercase tracking-wider text-accent-300">
+                    {t('home.licenseActive')} · {licenseSnapshot.planName}
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold text-white">
+                    {licenseSnapshot.playlistUrl?.trim()
+                      ? t('home.openLicensed')
+                      : t('home.addPlaylist')}
+                  </p>
+                  <p className="mt-1 text-base text-slate-400">
+                    {t('home.expires')}: {expiresLabel}
+                  </p>
+                </div>
+                <span className="rounded-xl bg-accent-500 px-6 py-3 text-lg font-semibold text-white">
+                  {licenseSnapshot.playlistUrl?.trim() ? t('home.open') : t('home.add')}
+                </span>
+              </div>
+            </Focusable>
+          </section>
+        )}
+
+        {licenseChecked && STORE_BUILD && !licenseSnapshot && (
+          <section className="home-license-required mx-16 mb-6 rounded-2xl border border-surface-600 bg-surface-900/80 px-8 py-5">
+            <p className="text-xl font-semibold text-white">{t('home.licenseRequired')}</p>
+            <p className="mt-1 text-base text-slate-400">
+              {t(PLAY_STORE ? 'home.licenseRequiredHintPlay' : 'home.licenseRequiredHint')}
+            </p>
+          </section>
+        )}
       </div>
 
       <div className="home-main flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <section className="home-actions px-16 pb-8">
-        <h2 className="mb-6 text-2xl font-semibold text-slate-300">{t('home.quickActions')}</h2>
-        <div
-          className={`grid gap-6 ${
-            STORE_BUILD
-              ? menuItems.length <= 2
-                ? 'grid-cols-2'
-                : 'grid-cols-2 xl:grid-cols-4'
-              : 'grid-cols-3 xl:grid-cols-6'
-          }`}
-        >
-          {menuItems.map((item, index) => (
-            <Focusable
-              key={item.id}
-              focusId={`menu-${item.id}`}
-              focusGroup="home-menu"
-              focusPriority={10 - index}
-              className="home-action-card h-48"
-              onClick={() => handleMenuAction(item)}
-            >
-              <Card
-                title={t(item.titleKey)}
-                subtitle={t(item.subtitleKey)}
-                icon={item.icon}
-                focused={false}
-                className="h-full"
-              />
-            </Focusable>
-          ))}
-        </div>
-      </section>
-
-      {recentPlaylists.length > 0 && (!STORE_BUILD || Boolean(licenseSnapshot)) && (
-        <section className="home-recent flex-1 px-16 pb-12">
-          <h2 className="mb-6 text-2xl font-semibold text-slate-300">{t('home.recent')}</h2>
-          <div className="flex gap-6 overflow-x-auto pb-4">
-            {recentPlaylists.map((entry, index) => (
+        <section className="home-actions px-16 pb-8">
+          <h2 className="mb-6 text-2xl font-semibold text-slate-300">{t('home.quickActions')}</h2>
+          <div
+            className={`grid gap-6 ${
+              STORE_BUILD
+                ? menuItems.length <= 2
+                  ? 'grid-cols-2'
+                  : 'grid-cols-2 xl:grid-cols-4'
+                : 'grid-cols-3 xl:grid-cols-6'
+            }`}
+          >
+            {menuItems.map((item, index) => (
               <Focusable
-                key={entry.id}
-                focusId={`recent-${entry.id}`}
-                focusGroup="home-recent"
-                focusPriority={5 - index}
-                className="home-recent-card h-40 w-72 shrink-0"
-                onClick={() => void handleRecentSelect(entry.id)}
+                key={item.id}
+                focusId={`menu-${item.id}`}
+                focusGroup="home-menu"
+                focusPriority={10 - index}
+                className="home-action-card h-48"
+                onClick={() => handleMenuAction(item)}
               >
                 <Card
-                  title={entry.name}
-                  subtitle={entry.source.type === 'url' ? entry.source.location : entry.source.label}
-                  icon="📺"
-                  badge={entry.source.type}
+                  title={t(item.titleKey)}
+                  subtitle={t(item.subtitleKey)}
+                  icon={item.icon}
+                  focused={false}
                   className="h-full"
                 />
               </Focusable>
             ))}
           </div>
         </section>
-      )}
+
+        {recentPlaylists.length > 0 && (!STORE_BUILD || Boolean(licenseSnapshot)) && (
+          <section className="home-recent flex-1 px-16 pb-12">
+            <h2 className="mb-6 text-2xl font-semibold text-slate-300">{t('home.recent')}</h2>
+            <div className="flex gap-6 overflow-x-auto pb-4">
+              {recentPlaylists.map((entry, index) => (
+                <Focusable
+                  key={entry.id}
+                  focusId={`recent-${entry.id}`}
+                  focusGroup="home-recent"
+                  focusPriority={5 - index}
+                  className="home-recent-card h-40 w-72 shrink-0"
+                  onClick={() => void handleRecentSelect(entry.id)}
+                >
+                  <Card
+                    title={entry.name}
+                    subtitle={
+                      entry.source.type === 'url' ? entry.source.location : entry.source.label
+                    }
+                    icon="📺"
+                    badge={entry.source.type}
+                    className="h-full"
+                  />
+                </Focusable>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
@@ -744,6 +816,13 @@ export function HomePage(): ReactNode {
   return (
     <>
       {homeBody}
+      {dragActive && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="rounded-2xl border-4 border-dashed border-accent-400 bg-surface-900/90 px-16 py-12 text-center">
+            <p className="text-3xl font-semibold text-white">{t('home.dropHint')}</p>
+          </div>
+        </div>
+      )}
       {urlDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
           <div className="url-dialog-panel w-[720px] rounded-2xl bg-surface-800 p-8">
@@ -805,9 +884,7 @@ export function HomePage(): ReactNode {
               autoCapitalize="characters"
               spellCheck={false}
             />
-            {activateError && (
-              <p className="mb-4 text-lg text-error-500">{activateError}</p>
-            )}
+            {activateError && <p className="mb-4 text-lg text-error-500">{activateError}</p>}
             <div className="flex gap-4">
               <Focusable
                 focusId="activate-submit"

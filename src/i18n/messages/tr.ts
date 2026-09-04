@@ -33,6 +33,7 @@ export const tr: Messages = {
   'home.openLive': 'Canlı TV',
   'home.openMovies': 'Filmler',
   'home.openSeries': 'Diziler',
+  'home.dropHint': 'M3U / M3U8 dosyasını buraya bırakın',
   'menu.checkLicense': 'Lisansı kontrol et',
   'menu.checkLicenseSub': 'Siteden satın aldıktan sonra yenile',
   'menu.checkLicenseSubPlay': 'Mevcut lisansı bu cihaza bağla',
