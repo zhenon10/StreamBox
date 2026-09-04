@@ -42,6 +42,35 @@ mod win_keep_awake {
   }
 }
 
+/// Registers an opened playlist file with Windows' native "Recent" jump-list
+/// category (right-click the taskbar icon). This is the standard way apps
+/// get a Recent section there — no custom ICustomDestinationList needed,
+/// the shell builds and persists that category on its own once a path is
+/// registered through this API.
+#[cfg(target_os = "windows")]
+mod win_recent_docs {
+  use std::os::windows::ffi::OsStrExt;
+  use std::path::Path;
+
+  const SHARD_PATHW: u32 = 0x0000_0003;
+
+  #[link(name = "shell32")]
+  extern "system" {
+    fn SHAddToRecentDocs(uFlags: u32, pv: *const u16);
+  }
+
+  pub fn add(path: &Path) {
+    let wide: Vec<u16> = path
+      .as_os_str()
+      .encode_wide()
+      .chain(std::iter::once(0))
+      .collect();
+    unsafe {
+      SHAddToRecentDocs(SHARD_PATHW, wide.as_ptr());
+    }
+  }
+}
+
 #[tauri::command]
 fn get_or_create_device_id(app: tauri::AppHandle) -> Result<String, String> {
   let file = device_id_path(&app)?;
@@ -89,7 +118,33 @@ async fn pick_m3u_file(app: tauri::AppHandle) -> Result<Option<M3uFile>, String>
     .and_then(|n| n.to_str())
     .unwrap_or("playlist.m3u")
     .to_string();
+  #[cfg(target_os = "windows")]
+  win_recent_docs::add(&path);
   Ok(Some(M3uFile { name, content }))
+}
+
+/// Reopens a file the shell launched us with — a double-click on the .m3u
+/// itself, or a click on its "Recent" jump-list entry (both pass the path
+/// as argv[1], read via get_launch_file).
+#[tauri::command]
+fn read_m3u_file(path: String) -> Result<M3uFile, String> {
+  let path = PathBuf::from(path);
+  let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+  let name = path
+    .file_name()
+    .and_then(|n| n.to_str())
+    .unwrap_or("playlist.m3u")
+    .to_string();
+  #[cfg(target_os = "windows")]
+  win_recent_docs::add(&path);
+  Ok(M3uFile { name, content })
+}
+
+/// argv[1] when the shell launched us with a file path (double-click on an
+/// .m3u, or a "Recent" jump-list entry) — None on a normal launch.
+#[tauri::command]
+fn get_launch_file() -> Option<String> {
+  std::env::args().nth(1).filter(|a| !a.trim().is_empty())
 }
 
 #[tauri::command]
@@ -113,6 +168,8 @@ pub fn run() {
       get_or_create_device_id,
       set_device_id,
       pick_m3u_file,
+      read_m3u_file,
+      get_launch_file,
       set_keep_awake,
       exit_app
     ])

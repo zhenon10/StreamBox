@@ -24,6 +24,7 @@ import type { LicenseSnapshot } from '@/domain/license/types';
 import { formatPurchaseCode, getOrCreateDeviceId } from '@/infrastructure/license/DeviceIdentity';
 import { isPlayStoreBuild, playlistRequiresLicense } from '@/domain/license/storeBuild';
 import { isDesktopUi, isShellUi } from '@/platform/detectPlatform';
+import { invokeTauri, isTauriRuntime } from '@/platform/windows/tauriBridge';
 import { AndroidHomeLayout } from '@/ui/android/AndroidHomeLayout';
 import type { ContentSection } from '@/domain/content/contentSection';
 import type { PlaylistId } from '@/domain/entities';
@@ -295,6 +296,54 @@ export function HomePage(): ReactNode {
     }
   }, [setCurrentPlaylist, setLoadError, setLoadProgress, setLoading, setRecentPlaylists]);
 
+  // Windows: the shell launches us with a file path as argv[1] when the
+  // user double-clicks an .m3u or picks it from the taskbar icon's
+  // "Recent" jump list (added there by pick_m3u_file/read_m3u_file on the
+  // Rust side). Returns whether a launch file was actually found and
+  // handled, so the caller knows whether to fall back to restoring the
+  // last playlist instead.
+  const handleLaunchFile = useCallback(async (): Promise<boolean> => {
+    if (!isTauriRuntime()) return false;
+    const path = await invokeTauri<string | null>('get_launch_file').catch(() => null);
+    if (!path) return false;
+
+    setLoading(true);
+    setLoadError(null);
+    setLoadProgress(0);
+    try {
+      const result = await invokeTauri<{ name: string; content: string }>('read_m3u_file', {
+        path,
+      });
+      const loadDeps = {
+        filePicker: platform.filePicker,
+        playlistRepo: repositories.playlists,
+        recentRepo: repositories.recentPlaylists,
+        channelIndex,
+        channelRepo: repositories.channels,
+        contentProviders: services.resolve(TOKENS.contentProviderRegistry),
+        eventPublisher: services.resolve(TOKENS.eventPublisher),
+        performanceMonitor: services.resolve(TOKENS.performanceMonitor),
+      };
+      const playlist = await loadPlaylistFromDroppedFile(
+        loadDeps,
+        result.name,
+        result.content,
+        (progress) => setLoadProgress(progress.loaded),
+      );
+      setCurrentPlaylist(playlist);
+      setLoading(false);
+      await yieldToMain();
+      const recent = await repositories.recentPlaylists.getRecent(10);
+      setRecentPlaylists(recent);
+      await yieldToMain();
+      navigate('/channels');
+    } catch (error) {
+      setLoadError(formatPlaylistLoadError(error));
+      setLoading(false);
+    }
+    return true;
+  }, [navigate, setCurrentPlaylist, setLoadError, setLoadProgress, setLoading, setRecentPlaylists]);
+
   useEffect(() => {
     void (async () => {
       const deviceId = await getOrCreateDeviceId(platform.storage);
@@ -318,10 +367,13 @@ export function HomePage(): ReactNode {
         setLicenseSnapshot(null);
       }
 
-      await restoreLastPlaylist();
+      const openedLaunchFile = await handleLaunchFile();
+      if (!openedLaunchFile) {
+        await restoreLastPlaylist();
+      }
       setLicenseChecked(true);
     })();
-  }, [licenseDeps, restoreLastPlaylist]);
+  }, [licenseDeps, restoreLastPlaylist, handleLaunchFile]);
 
   const handleLoadFile = useCallback(async () => {
     setLoading(true);
