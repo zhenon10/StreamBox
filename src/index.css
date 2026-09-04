@@ -54,6 +54,19 @@ body,
   will-change: transform;
 }
 
+/*
+ * Mouse/trackpad hover affordance. Scoped to real pointers only (not touch,
+ * where a lingering ":hover" after tap reads as a stuck highlight) — Windows
+ * and browser desktop are the platforms that actually rely on this, since
+ * the shared TV-style shell otherwise only reacts to D-pad focus or a click.
+ * Weaker than the focused ring so the two stay visually distinct.
+ */
+@media (hover: hover) and (pointer: fine) {
+  [data-focusable='true']:not(:disabled):not(.focused):not(:focus-visible):hover {
+    box-shadow: 0 0 0 2px var(--theme-focus-ring, var(--color-accent-500));
+  }
+}
+
 .scrollbar-hidden {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -1466,4 +1479,42 @@ html[data-ui='touch'] .and-main .scrollbar-hidden {
 
 html[data-ui='touch'] .and-poster {
   min-height: min-content;
+}
+
+/*
+ * Windows/browser desktop window can be resized down to 720px wide
+ * (tauri.conf.json minWidth). Below that the 4-column and-body grid (icon
+ * rail + categories + main + live preview) gets tight, so drop the
+ * least-essential preview column and trim the category rail first — same
+ * shape as the touch fallback above, just keyed off viewport width instead
+ * of the touch flag since desktop windows are freely resizable.
+ * Not visually verified against a live resize — flag if it still feels tight.
+ */
+@media (max-width: 960px) {
+  html[data-platform='windows'] .and-body:has(.and-preview),
+  html[data-platform='browser'] .and-body:has(.and-preview) {
+    grid-template-columns: 2.9rem minmax(9rem, 12rem) minmax(0, 1fr);
+  }
+
+  html[data-platform='windows'] .and-preview,
+  html[data-platform='browser'] .and-preview {
+    display: none;
+  }
+
+  html[data-platform='windows'] .and-meta-card,
+  html[data-platform='browser'] .and-meta-card {
+    min-width: 6rem;
+  }
+}
+
+@media (max-width: 760px) {
+  html[data-platform='windows'] .and-body,
+  html[data-platform='browser'] .and-body {
+    grid-template-columns: 2.6rem minmax(7.5rem, 10rem) minmax(0, 1fr);
+  }
+
+  html[data-platform='windows'] .and-topbar-meta,
+  html[data-platform='browser'] .and-topbar-meta {
+    display: none;
+  }
 }
