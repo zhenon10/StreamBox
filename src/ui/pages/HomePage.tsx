@@ -883,6 +883,14 @@ export function HomePage(): ReactNode {
               type="url"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
+              onKeyDown={(e) => {
+                // Remote OK is swallowed while typing (must reach the caret),
+                // so it never becomes a D-pad 'Enter' here — submit directly.
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleLoadUrl();
+                }
+              }}
               placeholder="https://example.com/playlist.m3u"
               className="mb-6 w-full rounded-xl border-2 border-surface-600 bg-surface-900 px-6 py-4 text-xl text-white focus:border-accent-500 focus:outline-none"
               autoFocus
@@ -930,6 +938,14 @@ export function HomePage(): ReactNode {
               type="text"
               value={activateCode}
               onChange={(e) => setActivateCode(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                // Remote OK is swallowed while typing (must reach the caret),
+                // so it never becomes a D-pad 'Enter' here — submit directly.
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleActivateSubmit();
+                }
+              }}
               placeholder="DEMO-2026"
               className="mb-4 w-full rounded-xl border-2 border-surface-600 bg-surface-900 px-6 py-5 text-center text-3xl font-semibold tracking-widest text-white focus:border-accent-500 focus:outline-none"
               autoFocus

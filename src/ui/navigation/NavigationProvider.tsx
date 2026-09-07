@@ -116,9 +116,15 @@ export function NavigationProvider({
         return;
       }
 
+      // Prefer whatever actually holds native focus — a Focusable button,
+      // but also a plain autoFocus'd <input> inside a modal (license/URL
+      // entry dialogs) that this system never registers in
+      // currentFocusedRef. Falling back to that stale ref there strands
+      // D-pad users on whatever was focused *behind* the modal, so arrow
+      // keys can't reach the dialog's own Confirm/Cancel buttons.
       const active = document.activeElement as HTMLElement | null;
       const current =
-        active?.dataset.focusable === 'true'
+        active && active !== document.body
           ? active
           : currentFocusedRef.current ?? getDefaultFocusable(containerRef.current ?? undefined);
 
