@@ -10,6 +10,48 @@ const PLAYLIST_PROXY_PATH = '/api/playlist-proxy';
 const STREAM_PROXY_PATH = '/api/stream-proxy';
 const STREAM_REMUX_PATH = '/api/stream-remux';
 
+/** True when a proxied response should be treated as an HLS playlist body. */
+function looksLikeM3u8(target: string, contentType: string): boolean {
+  if (/\.m3u8(\?|$)/i.test(target)) return true;
+  return /mpegurl/i.test(contentType || '');
+}
+
+/**
+ * Rewrite every segment / variant-playlist URI inside an HLS playlist so it
+ * routes back through this same dev proxy, resolved against the ORIGINAL
+ * upstream URL rather than the proxy's own request URL.
+ *
+ * hls.js resolves relative URIs (nearly all real playlists use them) against
+ * the URL it fetched, which is our /api/stream-proxy?url=... request. Left
+ * unrewritten, "segment0.ts" becomes /api/segment0.ts — a path Vite doesn't
+ * serve, so it falls through to the SPA's index.html — and every
+ * segment/variant request silently gets HTML instead of media, so playback
+ * never starts. Mirrors license-server/index.mjs's rewriteM3u8.
+ */
+function rewriteM3u8(body: string, sourceUrl: string): string {
+  const toProxied = (uri: string): string => {
+    let abs: string;
+    try {
+      abs = new URL(uri, sourceUrl).toString();
+    } catch {
+      return uri;
+    }
+    return `${STREAM_PROXY_PATH}?url=${encodeURIComponent(abs)}`;
+  };
+
+  return body
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return line;
+      if (trimmed.startsWith('#')) {
+        return line.replace(/URI="([^"]+)"/i, (_m, uri: string) => `URI="${toProxied(uri)}"`);
+      }
+      return toProxied(trimmed);
+    })
+    .join('\n');
+}
+
 /** Dev server middleware — fetches remote M3U URLs server-side to bypass browser CORS. */
 function playlistProxyPlugin(): Plugin {
   return {
@@ -126,6 +168,19 @@ function streamProxyPlugin(): Plugin {
             res.end(
               `Stream proxy upstream ${response.status}: ${errBody.slice(0, 200) || contentTypePeek}`,
             );
+            return;
+          }
+
+          if (looksLikeM3u8(target, contentTypePeek)) {
+            // Playlists are small text — buffer, rewrite embedded URIs, then send.
+            const rewritten = rewriteM3u8(await response.text(), target);
+            const body = Buffer.from(rewritten, 'utf8');
+            res.statusCode = response.status;
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Cache-Control', 'no-store');
+            res.setHeader('Content-Type', contentTypePeek);
+            res.setHeader('Content-Length', String(body.byteLength));
+            res.end(body);
             return;
           }
 

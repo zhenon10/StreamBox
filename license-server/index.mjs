@@ -942,6 +942,51 @@ function guessProxyContentType(target) {
   return 'video/mp2t';
 }
 
+/** True when a proxied response should be treated as an HLS playlist body. */
+function looksLikeM3u8(target, contentType) {
+  if (/\.m3u8(\?|$)/i.test(target)) return true;
+  return /mpegurl/i.test(contentType || '');
+}
+
+/**
+ * Rewrite every segment / variant-playlist URI inside an HLS playlist so it
+ * routes back through this same proxy, resolved against the ORIGINAL upstream
+ * URL rather than the proxy's own request URL.
+ *
+ * hls.js has no way to know the manifest "really" came from elsewhere — it
+ * resolves relative URIs (nearly all real playlists use them) against the
+ * URL it fetched, which is our /v1/stream-proxy?url=... request. Left
+ * unrewritten, that turns "segment0.ts" into
+ * /v1/stream-proxy/segment0.ts — a path this server doesn't serve — so every
+ * segment/variant request 404s (or falls through to something unrelated) and
+ * playback silently never starts.
+ */
+function rewriteM3u8(body, sourceUrl) {
+  const toProxied = (uri) => {
+    let abs;
+    try {
+      abs = new NodeURL(uri, sourceUrl).toString();
+    } catch {
+      return uri;
+    }
+    return `/v1/stream-proxy?url=${encodeURIComponent(abs)}`;
+  };
+
+  return body
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return line;
+      if (trimmed.startsWith('#')) {
+        // Tag lines that carry their own URI="..." attribute (key/map/media).
+        return line.replace(/URI="([^"]+)"/i, (_m, uri) => `URI="${toProxied(uri)}"`);
+      }
+      // Any other non-empty line is a segment or variant-playlist reference.
+      return toProxied(trimmed);
+    })
+    .join('\n');
+}
+
 /**
  * Block SSRF to localhost / private / link-local / metadata addresses.
  * Re-checked on every redirect hop. Does not log the URL.
@@ -1108,15 +1153,17 @@ function proxyFetch(req, res, target, redirectCount) {
         outHeaders['Accept-Ranges'] = up.headers['accept-ranges'];
       }
 
-      res.writeHead(status, outHeaders);
+      const contentType = String(outHeaders['Content-Type'] || '').toLowerCase();
+
       if (req.method === 'HEAD') {
+        res.writeHead(status, outHeaders);
         res.end();
         up.resume();
         return;
       }
 
-      const contentType = String(outHeaders['Content-Type'] || '').toLowerCase();
       if (status >= 400 || contentType.includes('text/html')) {
+        res.writeHead(status, outHeaders);
         const chunks = [];
         up.on('data', (c) => chunks.push(c));
         up.on('end', () => {
@@ -1128,6 +1175,25 @@ function proxyFetch(req, res, target, redirectCount) {
         return;
       }
 
+      if (looksLikeM3u8(target, contentType)) {
+        // Playlists are small text — buffer, rewrite embedded URIs, then send.
+        const chunks = [];
+        up.on('data', (c) => chunks.push(c));
+        up.on('end', () => {
+          if (res.writableEnded) return;
+          const rewritten = rewriteM3u8(Buffer.concat(chunks).toString('utf8'), target);
+          const body = Buffer.from(rewritten, 'utf8');
+          outHeaders['Content-Length'] = String(body.byteLength);
+          res.writeHead(status, outHeaders);
+          res.end(body);
+        });
+        up.on('error', () => {
+          if (!res.writableEnded) res.end();
+        });
+        return;
+      }
+
+      res.writeHead(status, outHeaders);
       up.on('error', () => {
         if (!res.writableEnded) res.end();
       });
