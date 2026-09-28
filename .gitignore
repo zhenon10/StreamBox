@@ -64,3 +64,6 @@ license-server/.env.*
 *.njsproj
 *.sln
 *.sw?
+
+# graphify knowledge graph output
+graphify-out/
