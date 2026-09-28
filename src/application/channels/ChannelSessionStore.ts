@@ -1,19 +1,11 @@
 import type { Channel, ChannelId, PlaylistId } from '@/domain/entities';
 import {
+  catalogFromGroupStats,
   classifyChannel,
-  categoryAllowedInSection,
-  dominantSection,
   emptyCatalog,
-  groupTotal,
   isAdultCategory,
-  isStrongLiveName,
-  isStrongMovieName,
-  isStrongSeriesName,
-  isVodLabeledCategory,
-  normalizeCategoryKey,
   type ContentCatalog,
   type ContentSection,
-  type SectionCategory,
 } from '@/domain/content/contentSection';
 import { yieldToMain } from '@/infrastructure/async/yieldToMain';
 
@@ -298,91 +290,7 @@ class ChannelSessionStoreImpl {
 
     if (this.channels !== channels) return this.catalog;
 
-    const live: SectionCategory[] = [];
-    const movie: SectionCategory[] = [];
-    const series: SectionCategory[] = [];
-
-    for (const [name, stats] of groupStats) {
-      const total = groupTotal(stats);
-      if (total <= 0) continue;
-      const adult = isAdultCategory(name);
-
-      // Film / dizi labels first (Turkish İ: FİLM / DİZİ) — never pin these to Live.
-      if (isStrongSeriesName(name)) {
-        series.push({ name, channelCount: total, section: 'series', adult });
-        continue;
-      }
-      if (isStrongMovieName(name)) {
-        movie.push({ name, channelCount: total, section: 'movie', adult });
-        continue;
-      }
-      if (isStrongLiveName(name)) {
-        live.push({ name, channelCount: total, section: 'live', adult });
-        continue;
-      }
-
-      // Ambiguous group: place only where streams actually belong.
-      // Live tab must not inherit VOD leftovers.
-      if (stats.series > 0 && categoryAllowedInSection(name, 'series')) {
-        series.push({ name, channelCount: stats.series, section: 'series', adult });
-      }
-      if (stats.movie > 0 && categoryAllowedInSection(name, 'movie')) {
-        movie.push({ name, channelCount: stats.movie, section: 'movie', adult });
-      }
-      if (stats.live > 0 && categoryAllowedInSection(name, 'live') && !isVodLabeledCategory(name)) {
-        live.push({ name, channelCount: stats.live, section: 'live', adult });
-      } else if (stats.live === 0 && stats.movie === 0 && stats.series === 0) {
-        // unreachable — total > 0
-      } else if (
-        // No section matched; fall back by dominant (still never VOD→Live)
-        stats.live + stats.movie + stats.series > 0 &&
-        !isVodLabeledCategory(name)
-      ) {
-        const named = dominantSection(stats, name);
-        if (named === 'live' && stats.live > 0) {
-          live.push({ name, channelCount: stats.live, section: 'live', adult });
-        } else if (named === 'movie' && stats.movie > 0) {
-          movie.push({ name, channelCount: stats.movie, section: 'movie', adult });
-        } else if (named === 'series' && stats.series > 0) {
-          series.push({ name, channelCount: stats.series, section: 'series', adult });
-        }
-      }
-    }
-
-    const sortCats = (list: SectionCategory[]): SectionCategory[] => {
-      const MAX = 250;
-      // Dedupe by normalized name (prevents repeated tiles when navigating).
-      const seen = new Set<string>();
-      const unique: SectionCategory[] = [];
-      for (const entry of list) {
-        const key = normalizeCategoryKey(entry.name);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        unique.push(entry);
-      }
-      unique.sort((a, b) => {
-        if (a.section === 'live') {
-          const aLive = liveNameScore(a.name);
-          const bLive = liveNameScore(b.name);
-          if (aLive !== bLive) return bLive - aLive;
-        }
-        return b.channelCount - a.channelCount || a.name.localeCompare(b.name);
-      });
-      return unique.slice(0, MAX);
-    };
-
-    // Prefer real broadcast groups (► Ulusal / Spor / Haber) when present.
-    const liveSorted = sortCats(live);
-    const strongLive = liveSorted.filter((c) => isStrongLiveName(c.name));
-    const liveFinal =
-      strongLive.length >= 2 ? strongLive : liveSorted.filter((c) => !isVodLabeledCategory(c.name));
-
-    this.catalog = {
-      live: liveFinal,
-      movie: sortCats(movie),
-      series: sortCats(series),
-      counts,
-    };
+    this.catalog = catalogFromGroupStats(groupStats, counts);
     this.catalogReady = true;
     return this.catalog;
   }
@@ -417,13 +325,3 @@ class ChannelSessionStoreImpl {
 
 export const channelSession = new ChannelSessionStoreImpl();
 
-/** Higher = more likely a real broadcast category (shown first in Live TV). */
-function liveNameScore(name: string): number {
-  const key = normalizeCategoryKey(name);
-  let score = 0;
-  if (/ulusal|haber|spor|belgesel|yerel|canli|live|radyo|muzik/.test(key)) score += 8;
-  if (/^[a-z]{2,3}\s*[|:]/.test(key)) score += 2;
-  if (/film|filme|movie|netflix|disney|dizi|vod|sinema|cinema/.test(key)) score -= 12;
-  if (key === 'uncategorized' || key === 'unknown') score -= 5;
-  return score;
-}

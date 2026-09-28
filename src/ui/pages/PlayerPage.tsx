@@ -101,8 +101,12 @@ export function PlayerPage(): ReactNode {
     [channel],
   );
 
-  const seekable =
-    contentKind !== 'live' && Number.isFinite(duration) && duration > 0;
+  // Same rule PlaybackController uses for the engine: a /live/ URL is a live
+  // stream even when its group files it under Film / Dizi (24/7 channels).
+  const streamIsLive =
+    contentKind === 'live' || (channel !== null && /\/live\//i.test(channel.url));
+
+  const seekable = !streamIsLive && Number.isFinite(duration) && duration > 0;
 
   const isFavorite = channel ? favorites.includes(channel.id as ChannelId) : false;
   const isPlaying = playbackState === 'playing';
@@ -248,9 +252,9 @@ export function PlayerPage(): ReactNode {
     setPlaybackError(null);
     bumpOverlay();
     void controllerRef.current.play(channel.url, channel.id, channel.name, {
-      isLive: classifyChannel(channel) === 'live',
+      isLive: contentKind === 'live',
     });
-  }, [bumpOverlay, channel, setPlaybackError]);
+  }, [bumpOverlay, channel, contentKind, setPlaybackError]);
 
   // Full player recreate per channel — same path as leaving the list and reopening.
   // Reusing MSE/mpegts on one session causes audio + black video on zap (web + webOS).
@@ -819,7 +823,7 @@ export function PlayerPage(): ReactNode {
 
             <p className="player-hint mt-3 text-center text-sm text-slate-400">
               {t(FIT_KEYS[objectFit])}
-              {contentKind === 'live' ? t('player.hintLive') : t('player.hintVod')}
+              {streamIsLive ? t('player.hintLive') : t('player.hintVod')}
             </p>
           </footer>
         </div>

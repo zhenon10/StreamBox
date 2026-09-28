@@ -157,12 +157,7 @@ export function isStrongLiveName(group: string): boolean {
 
 /** True when the category clearly belongs to VOD (should never appear under Live). */
 export function isVodLabeledCategory(group: string): boolean {
-  if (isStrongMovieName(group) || isStrongSeriesName(group)) return true;
-  const g = normalizeCategoryKey(group);
-  // Catch accented / partial labels that slipped past strong matchers.
-  return /(?:^|[\s|/_►›»→:.-])(serie|series|dizi|film|filme|cinema|sinema|vod|movie)(?:\b|$)/.test(
-    g,
-  );
+  return isStrongMovieName(group) || isStrongSeriesName(group);
 }
 
 /**
@@ -286,6 +281,109 @@ export function emptyCatalog(): ContentCatalog {
     series: [],
     counts: { live: 0, movie: 0, series: 0 },
   };
+}
+
+/**
+ * Place each group into the Live / Movie / Series tabs from its per-section
+ * channel counts. Strong labels decide outright; ambiguous groups go only
+ * where their streams belong, and VOD-labeled groups never land under Live.
+ */
+export function catalogFromGroupStats(
+  groupStats: ReadonlyMap<string, Readonly<Record<ContentSection, number>>>,
+  counts: Record<ContentSection, number>,
+): ContentCatalog {
+  const live: SectionCategory[] = [];
+  const movie: SectionCategory[] = [];
+  const series: SectionCategory[] = [];
+
+  for (const [name, stats] of groupStats) {
+    const total = groupTotal(stats);
+    if (total <= 0) continue;
+    const adult = isAdultCategory(name);
+
+    // Film / dizi labels first (Turkish İ: FİLM / DİZİ) — never pin these to Live.
+    if (isStrongSeriesName(name)) {
+      series.push({ name, channelCount: total, section: 'series', adult });
+      continue;
+    }
+    if (isStrongMovieName(name)) {
+      movie.push({ name, channelCount: total, section: 'movie', adult });
+      continue;
+    }
+    if (isStrongLiveName(name)) {
+      live.push({ name, channelCount: total, section: 'live', adult });
+      continue;
+    }
+
+    // Ambiguous group: place only where streams actually belong.
+    // Live tab must not inherit VOD leftovers.
+    if (stats.series > 0 && categoryAllowedInSection(name, 'series')) {
+      series.push({ name, channelCount: stats.series, section: 'series', adult });
+    }
+    if (stats.movie > 0 && categoryAllowedInSection(name, 'movie')) {
+      movie.push({ name, channelCount: stats.movie, section: 'movie', adult });
+    }
+    if (stats.live > 0 && categoryAllowedInSection(name, 'live') && !isVodLabeledCategory(name)) {
+      live.push({ name, channelCount: stats.live, section: 'live', adult });
+    } else if (!isVodLabeledCategory(name)) {
+      // No section matched; fall back by dominant (still never VOD→Live)
+      const named = dominantSection(stats, name);
+      if (named === 'live' && stats.live > 0) {
+        live.push({ name, channelCount: stats.live, section: 'live', adult });
+      } else if (named === 'movie' && stats.movie > 0) {
+        movie.push({ name, channelCount: stats.movie, section: 'movie', adult });
+      } else if (named === 'series' && stats.series > 0) {
+        series.push({ name, channelCount: stats.series, section: 'series', adult });
+      }
+    }
+  }
+
+  // Prefer real broadcast groups (► Ulusal / Spor / Haber) when present.
+  const liveSorted = sortCategories(live);
+  const strongLive = liveSorted.filter((c) => isStrongLiveName(c.name));
+  const liveFinal =
+    strongLive.length >= 2 ? strongLive : liveSorted.filter((c) => !isVodLabeledCategory(c.name));
+
+  return {
+    live: liveFinal,
+    movie: sortCategories(movie),
+    series: sortCategories(series),
+    counts,
+  };
+}
+
+const MAX_CATEGORIES_PER_SECTION = 250;
+
+function sortCategories(list: readonly SectionCategory[]): SectionCategory[] {
+  // Dedupe by normalized name (prevents repeated tiles when navigating).
+  const seen = new Set<string>();
+  const unique: SectionCategory[] = [];
+  for (const entry of list) {
+    const key = normalizeCategoryKey(entry.name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(entry);
+  }
+  unique.sort((a, b) => {
+    if (a.section === 'live') {
+      const aLive = liveNameScore(a.name);
+      const bLive = liveNameScore(b.name);
+      if (aLive !== bLive) return bLive - aLive;
+    }
+    return b.channelCount - a.channelCount || a.name.localeCompare(b.name);
+  });
+  return unique.slice(0, MAX_CATEGORIES_PER_SECTION);
+}
+
+/** Higher = more likely a real broadcast category (shown first in Live TV). */
+function liveNameScore(name: string): number {
+  const key = normalizeCategoryKey(name);
+  let score = 0;
+  if (/ulusal|haber|spor|belgesel|yerel|canli|live|radyo|muzik/.test(key)) score += 8;
+  if (/^[a-z]{2,3}\s*[|:]/.test(key)) score += 2;
+  if (/film|filme|movie|netflix|disney|dizi|vod|sinema|cinema/.test(key)) score -= 12;
+  if (key === 'uncategorized' || key === 'unknown') score -= 5;
+  return score;
 }
 
 export function classifyCategoryName(name: string): ContentSection {
