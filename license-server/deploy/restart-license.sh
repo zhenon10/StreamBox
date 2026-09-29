@@ -1,9 +1,28 @@
 #!/bin/bash
 set -euo pipefail
+ENV_FILE="$HOME/.config/ivplayer/license.env"
+
+if systemctl --user cat ivplayer-license.service >/dev/null 2>&1; then
+  systemctl --user restart ivplayer-license.service
+  sleep 1
+  curl -sS --max-time 5 http://127.0.0.1:8787/v1/health
+  echo
+  echo "active=$(systemctl --user is-active ivplayer-license.service)"
+  PID="$(systemctl --user show -p MainPID --value ivplayer-license.service 2>/dev/null || true)"
+  if [[ -n "${PID:-}" && "$PID" != "0" && -r "/proc/$PID/environ" ]]; then
+    KEY=$(tr '\0' '\n' < "/proc/$PID/environ" | sed -n 's/^LICENSE_ADMIN_KEY=//p')
+    if [[ "$KEY" == "change-me-to-a-long-random-secret" || "$KEY" == "ivplayer-admin" ]]; then
+      echo "WARN: process still using placeholder admin key"
+    else
+      echo "ADMIN_KEY_LOADED=yes len=${#KEY}"
+    fi
+  fi
+  exit 0
+fi
+
 export NVM_DIR="$HOME/.nvm"
 . "$NVM_DIR/nvm.sh"
 export PATH="$HOME/bin:$PATH"
-ENV_FILE="$HOME/.config/ivplayer/license.env"
 set -a
 . "$ENV_FILE"
 set +a

@@ -13,6 +13,15 @@ else
 fi
 chmod 600 "$ENV_FILE"
 
+if systemctl --user cat ivplayer-license.service >/dev/null 2>&1; then
+  systemctl --user restart ivplayer-license.service
+  sleep 1
+  curl -sS --max-time 5 http://127.0.0.1:8787/v1/health
+  echo
+  echo "ADMIN_KEY=${KEY}"
+  exit 0
+fi
+
 export NVM_DIR="$HOME/.nvm"
 # shellcheck disable=SC1090
 . "$NVM_DIR/nvm.sh"

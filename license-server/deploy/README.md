@@ -2,6 +2,15 @@
 
 DNS `license.ivplayer.tr` → `78.189.53.159` olduktan sonra.
 
+Kullanıcı sürecini systemd’ye bağlamak (sudo yok, linger açık):
+
+```bash
+bash ~/ivplayer/license-server/deploy/install-user-systemd.sh
+systemctl --user status ivplayer-license
+```
+
+Restart: `bash ~/ivplayer/license-server/deploy/restart-license.sh`
+
 ```bash
 sudo mkdir -p /opt/ivplayer /var/www/ivplayer.tr
 sudo cp -r license-server /opt/ivplayer/

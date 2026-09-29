@@ -1,0 +1,25 @@
+[Unit]
+Description=IvPlayer license API
+After=network.target
+StartLimitBurst=10
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+WorkingDirectory=%h/ivplayer/license-server
+EnvironmentFile=-%h/.config/ivplayer/license.env
+Environment=LICENSE_PORT=8787
+Environment=LICENSE_BIND=127.0.0.1
+Environment=PATH=%h/bin:%h/.nvm/versions/node/v20.20.2/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash %h/ivplayer/license-server/deploy/run-license.sh
+Restart=always
+RestartSec=3
+KillMode=mixed
+TimeoutStopSec=15
+UMask=0077
+StandardOutput=append:%h/.config/ivplayer/license.log
+StandardError=append:%h/.config/ivplayer/license.log
+SyslogIdentifier=ivplayer-license
+
+[Install]
+WantedBy=default.target

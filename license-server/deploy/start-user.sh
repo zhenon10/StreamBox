@@ -20,6 +20,11 @@ set -a
 # shellcheck disable=SC1091
 . "$HOME/.config/ivplayer/license.env"
 set +a
+if [[ -x "$HOME/ivplayer/license-server/deploy/install-user-systemd.sh" ]]; then
+  bash "$HOME/ivplayer/license-server/deploy/install-user-systemd.sh"
+  echo "Node $(node -v)"
+  exit 0
+fi
 pkill -f "ivplayer/license-server/index.mjs" 2>/dev/null || true
 nohup node index.mjs >> "$HOME/.config/ivplayer/license.log" 2>&1 &
 sleep 1

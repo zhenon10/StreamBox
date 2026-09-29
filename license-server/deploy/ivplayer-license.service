@@ -1,3 +1,5 @@
+# System-wide unit for /opt/ivplayer (needs sudo). This host runs the
+# user unit instead: deploy/ivplayer-license.user.service
 [Unit]
 Description=IvPlayer license API
 After=network.target
