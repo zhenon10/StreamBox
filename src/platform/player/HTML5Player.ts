@@ -18,7 +18,7 @@ import {
   type PlaybackEngine,
 } from '@/infrastructure/player/streamUrl';
 
-function mapMediaError(error: MediaError | null): PlaybackError {
+function mapMediaError(error: MediaError | null, live: boolean): PlaybackError {
   if (!error) {
     return { code: 'UNKNOWN', message: 'Unknown playback error', recoverable: true };
   }
@@ -31,7 +31,11 @@ function mapMediaError(error: MediaError | null): PlaybackError {
       'Stream format not supported (tarayıcı bu codec/kapsayıcıyı açamıyor)',
   };
 
-  const recoverable = error.code === MediaError.MEDIA_ERR_NETWORK;
+  // Live TS/HLS streams routinely hit decoder errors mid-stream (PTS jumps,
+  // corrupt packets, encoder restarts). A fresh reload recovers them.
+  const recoverable =
+    error.code === MediaError.MEDIA_ERR_NETWORK ||
+    (live && error.code === MediaError.MEDIA_ERR_DECODE);
 
   return {
     code: `MEDIA_${String(error.code)}`,
@@ -375,10 +379,17 @@ export class HTML5Player implements IVideoPlayer {
     video.addEventListener('error', () => {
       if (this.suppressErrors || this.switching || !video.error) return;
       if (video.error.code === MediaError.MEDIA_ERR_ABORTED) return;
-      this.handlers.onError?.(mapMediaError(video.error));
+      this.handlers.onError?.(mapMediaError(video.error, this.liveMode));
       this.handlers.onStateChange?.('error');
     });
     video.addEventListener('ended', () => this.handlers.onEnded?.());
+  }
+
+  /** Engine error after load succeeded; hand it to the controller so it can reconnect. */
+  private reportRuntimeError(code: string, message: string, generation: number): void {
+    if (generation !== this.loadGeneration || this.suppressErrors || this.switching) return;
+    this.handlers.onError?.({ code, message, recoverable: this.liveMode });
+    this.handlers.onStateChange?.('error');
   }
 
   private async awaitPlayThen(fn: () => void): Promise<void> {
@@ -604,10 +615,29 @@ export class HTML5Player implements IVideoPlayer {
         window.clearTimeout(timer);
         finish(resolve);
       });
+      const generation = this.loadGeneration;
+      let mediaRecoveries = 0;
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal) return;
-        window.clearTimeout(timer);
-        finish(() => reject(new Error(data.details || 'HLS playback failed')));
+        if (!settled) {
+          window.clearTimeout(timer);
+          finish(() => reject(new Error(data.details || 'HLS playback failed')));
+          return;
+        }
+        // Mid-playback fatal error: try the in-place hls.js recovery first.
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaRecoveries < 3) {
+          mediaRecoveries++;
+          hls.recoverMediaError();
+          return;
+        }
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && this.liveMode) {
+          hls.startLoad();
+          return;
+        }
+        this.reportRuntimeError('HLS_RUNTIME', data.details || 'HLS playback failed', generation);
+      });
+      hls.on(Hls.Events.FRAG_BUFFERED, () => {
+        mediaRecoveries = 0;
       });
 
       hls.loadSource(resolveMediaFetchUrl(url));
@@ -702,8 +732,14 @@ export class HTML5Player implements IVideoPlayer {
       }, isLive ? 12_000 : 18_000);
 
       player.on(mpegts.Events.ERROR, (...args: unknown[]) => {
+        const message = `MPEG-TS error: ${args.map(String).join(' ')}`;
+        if (settled) {
+          // mpegts.js stops feeding MSE after a runtime error, so the picture freezes.
+          this.reportRuntimeError('MPEGTS_RUNTIME', message, generation);
+          return;
+        }
         window.clearTimeout(timer);
-        finish(() => reject(new Error(`MPEG-TS error: ${args.map(String).join(' ')}`)));
+        finish(() => reject(new Error(message)));
       });
       player.on(mpegts.Events.MEDIA_INFO, () => {
         window.clearTimeout(timer);

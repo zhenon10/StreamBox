@@ -22,6 +22,8 @@ export class PlaybackController {
   private stallTimer: ReturnType<typeof setInterval> | null = null;
   private lastTime = 0;
   private stallTicks = 0;
+  private stableTicks = 0;
+  private reconnecting = false;
 
   constructor(
     private readonly player: IVideoPlayer | VideoPlayerService,
@@ -46,18 +48,21 @@ export class PlaybackController {
           this.callbacks.onError(error);
           return;
         }
-        this.callbacks.onError(error);
         this.eventPublisher?.publish(EventKind.PlaybackError, {
           channelId: this.currentChannelId,
           error,
         });
         // Display-only / codec diagnostics must not restart the stream.
         if (error.code === 'NO_VIDEO_DISPLAY' || error.code === 'NO_VIDEO') {
+          this.callbacks.onError(error);
           return;
         }
-        if (error.recoverable && this.options.autoReconnect) {
+        if (error.recoverable && this.options.autoReconnect && this.currentUrl) {
+          // Reconnect silently; the error is surfaced only if all attempts fail.
           void this.attemptReconnect();
+          return;
         }
+        this.callbacks.onError(error);
       },
       onEnded: () => {
         this.clearStallWatchdog();
@@ -91,6 +96,8 @@ export class PlaybackController {
     this.liveHint = options?.isLive === true || /\/live\//i.test(url);
     this.lastTime = 0;
     this.stallTicks = 0;
+    this.stableTicks = 0;
+    this.reconnecting = false;
     this.callbacks.onStateChange('loading');
     try {
       await this.player.load(url, {
@@ -219,9 +226,12 @@ export class PlaybackController {
       if (t > this.lastTime + 0.15) {
         this.lastTime = t;
         this.stallTicks = 0;
+        // ~60s of steady playback: earlier hiccups no longer count against the limit.
+        if (++this.stableTicks >= 30) this.reconnectCount = 0;
         return;
       }
       this.stallTicks++;
+      this.stableTicks = 0;
       // ~12s without progress while "playing/buffering"
       if (this.stallTicks >= 6) {
         this.stallTicks = 0;
@@ -253,7 +263,7 @@ export class PlaybackController {
   }
 
   private async attemptReconnect(): Promise<void> {
-    if (this.destroyed || !this.currentUrl) return;
+    if (this.destroyed || !this.currentUrl || this.reconnecting) return;
     if (this.reconnectCount >= this.options.reconnectAttempts) {
       this.callbacks.onStateChange('error');
       this.callbacks.onError({
@@ -265,27 +275,38 @@ export class PlaybackController {
     }
 
     this.reconnectCount++;
+    this.reconnecting = true;
     this.callbacks.onStateChange('reconnecting');
     this.clearStallWatchdog();
     const generation = this.playGeneration;
 
-    await delay(this.options.reconnectDelayMs);
-
-    if (this.destroyed || !this.currentUrl || generation !== this.playGeneration) return;
-
+    let ok = false;
     try {
+      await delay(this.options.reconnectDelayMs);
+      if (this.destroyed || !this.currentUrl || generation !== this.playGeneration) return;
       await this.player.load(this.currentUrl, {
         isLive: this.liveHint,
         ...(this.currentChannelName ? { channelName: this.currentChannelName } : {}),
       });
+      if (this.destroyed || generation !== this.playGeneration) return;
       await this.player.play();
-      this.callbacks.onStateChange('playing');
-      this.lastTime = 0;
-      this.stallTicks = 0;
-      this.startStallWatchdog();
+      ok = true;
     } catch {
-      void this.attemptReconnect();
+      // retried below
+    } finally {
+      this.reconnecting = false;
     }
+
+    if (this.destroyed || generation !== this.playGeneration) return;
+    if (!ok) {
+      void this.attemptReconnect();
+      return;
+    }
+    this.callbacks.onStateChange('playing');
+    this.lastTime = 0;
+    this.stallTicks = 0;
+    this.stableTicks = 0;
+    this.startStallWatchdog();
   }
 }
 
