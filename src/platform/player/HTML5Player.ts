@@ -18,6 +18,28 @@ import {
   type PlaybackEngine,
 } from '@/infrastructure/player/streamUrl';
 
+/**
+ * From an HTTPS page an http:// media URL is blocked as mixed content before any
+ * request is made, so a direct fallback can only fail — and its generic
+ * "NetworkError Exception" would replace the proxy's real error.
+ */
+function canFetchDirect(url: string): boolean {
+  if (typeof window === 'undefined') return true;
+  return !(window.location.protocol === 'https:' && /^http:\/\//i.test(url));
+}
+
+/** mpegts.js ERROR args are (type, detail, info{code,msg}); keep the HTTP status readable. */
+function describeMpegTsError(args: readonly unknown[]): string {
+  const [type, detail, info] = args;
+  const parts = [type, detail].filter((v): v is string => typeof v === 'string');
+  if (info && typeof info === 'object') {
+    const { code, msg } = info as { code?: unknown; msg?: unknown };
+    if (typeof code === 'number' && code !== -1) parts.push(String(code));
+    if (typeof msg === 'string' && msg) parts.push(msg);
+  }
+  return `MPEG-TS error: ${parts.filter(Boolean).join(' ')}`;
+}
+
 function mapMediaError(error: MediaError | null, live: boolean): PlaybackError {
   if (!error) {
     return { code: 'UNKNOWN', message: 'Unknown playback error', recoverable: true };
@@ -127,7 +149,7 @@ export class HTML5Player implements IVideoPlayer {
     const candidates = this.liveMode
       ? buildLivePlaybackCandidates(url)
       : buildPlaybackCandidates(url);
-    let lastError: Error | null = null;
+    let firstError: Error | null = null;
 
     try {
       for (const candidate of candidates) {
@@ -147,7 +169,9 @@ export class HTML5Player implements IVideoPlayer {
             return;
           } catch (error) {
             if (generation !== this.loadGeneration) return;
-            lastError = error instanceof Error ? error : new Error(String(error));
+            // The first attempt is the user's own URL; later candidates are guesses
+            // (.m3u8/.mp4 variants) whose errors say nothing about the real cause.
+            firstError ??= error instanceof Error ? error : new Error(String(error));
             this.destroyEngines();
             await this.recreateVideoElement();
             if (generation !== this.loadGeneration) return;
@@ -155,7 +179,7 @@ export class HTML5Player implements IVideoPlayer {
         }
       }
 
-      throw new Error(formatPlaybackFailure(url, lastError?.message ?? 'no supported source'));
+      throw new Error(formatPlaybackFailure(url, firstError?.message ?? 'no supported source'));
     } finally {
       if (generation === this.loadGeneration) {
         this.suppressErrors = false;
@@ -515,19 +539,19 @@ export class HTML5Player implements IVideoPlayer {
     // Production web is HTTPS; IPTV URLs are often HTTP → mixed-content block.
     // Always prefer the CORS/HTTPS stream-proxy, then fall back to direct.
     const proxied = resolveMediaFetchUrl(url);
-    const urls = proxied !== url ? [proxied, url] : [url];
+    const urls = proxied === url ? [url] : canFetchDirect(url) ? [proxied, url] : [proxied];
 
-    let lastError: Error | null = null;
+    let firstError: Error | null = null;
     for (const src of urls) {
       try {
         await this.loadNativeOnce(src);
         return;
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
+        firstError ??= error instanceof Error ? error : new Error(String(error));
         await this.clearVideoSource();
       }
     }
-    throw lastError ?? new Error('Native playback failed');
+    throw firstError ?? new Error('Native playback failed');
   }
 
   private async loadNativeOnce(url: string): Promise<void> {
@@ -657,22 +681,23 @@ export class HTML5Player implements IVideoPlayer {
 
     // Prefer proxied URL whenever rewrite applies (DEV Vite proxy or webOS license proxy).
     const proxied = resolveMediaFetchUrl(url);
-    const urlsToTry = proxied !== url ? [proxied, url] : [url];
+    const urlsToTry =
+      proxied === url ? [url] : canFetchDirect(url) ? [proxied, url] : [proxied];
 
-    let lastError: Error | null = null;
+    let firstError: Error | null = null;
     for (const fetchUrl of urlsToTry) {
       if (generation !== this.loadGeneration) return;
       try {
         await this.loadMpegTsOnce(fetchUrl, isLive, generation);
         return;
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
+        firstError ??= error instanceof Error ? error : new Error(String(error));
         this.destroyEngines();
         await this.recreateVideoElement();
         if (generation !== this.loadGeneration) return;
       }
     }
-    throw lastError ?? new Error('MPEG-TS load failed');
+    throw firstError ?? new Error('MPEG-TS load failed');
   }
 
   private async loadMpegTsOnce(
@@ -732,7 +757,7 @@ export class HTML5Player implements IVideoPlayer {
       }, isLive ? 12_000 : 18_000);
 
       player.on(mpegts.Events.ERROR, (...args: unknown[]) => {
-        const message = `MPEG-TS error: ${args.map(String).join(' ')}`;
+        const message = describeMpegTsError(args);
         if (settled) {
           // mpegts.js stops feeding MSE after a runtime error, so the picture freezes.
           this.reportRuntimeError('MPEGTS_RUNTIME', message, generation);
