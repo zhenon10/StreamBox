@@ -283,6 +283,11 @@ export function resolveMediaFetchUrl(url: string): string {
 }
 
 export function formatPlaybackFailure(url: string, cause: string): string {
+  // The stream-proxy answers 502 when the panel returned a web page instead of
+  // media — typically its "connection limit reached" / blocked-account page.
+  if (/HttpStatusCodeInvalid 502\b/.test(cause)) {
+    return 'Yayın sağlayıcısı video göndermedi. Hesabınızın bağlantı limiti dolmuş olabilir (yayın başka bir cihazda açık) ya da hesap engellenmiş olabilir. Biraz bekleyip tekrar deneyin.';
+  }
   if (isRemuxUrl(url) || needsContainerRemux(url)) {
     return `Bu video tarayıcıda açılamıyor (${cause}). Kaynak MKV/HEVC olabilir — remux başarısız veya codec desteklenmiyor.`;
   }

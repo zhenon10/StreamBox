@@ -1096,6 +1096,10 @@ function proxyFetch(req, res, target, redirectCount) {
     }
   }
 
+  // The viewer may already have given up (zap, timeout, closed tab) while we
+  // were following redirects — don't open a connection nobody will read.
+  if (res.destroyed) return;
+
   const transport = parsed.protocol === 'https:' ? https : http;
   const upstream = transport.request(
     target,
@@ -1110,6 +1114,7 @@ function proxyFetch(req, res, target, redirectCount) {
       const location = up.headers.location;
 
       if (location && status >= 300 && status < 400 && redirectCount < 8) {
+        res.off('close', dropUpstream);
         up.resume();
         let next;
         try {
@@ -1162,7 +1167,16 @@ function proxyFetch(req, res, target, redirectCount) {
         return;
       }
 
-      if (status >= 400 || contentType.includes('text/html')) {
+      if (status < 400 && contentType.includes('text/html')) {
+        // Panels answer "connection limit reached" / blocked accounts with a
+        // redirect to a web page. Passing it on as 200 made players try to
+        // decode HTML as video ("FormatUnsupported").
+        up.resume();
+        json(res, 502, { ok: false, error: 'upstream_not_media' });
+        return;
+      }
+
+      if (status >= 400) {
         res.writeHead(status, outHeaders);
         const chunks = [];
         up.on('data', (c) => chunks.push(c));
@@ -1197,12 +1211,17 @@ function proxyFetch(req, res, target, redirectCount) {
       up.on('error', () => {
         if (!res.writableEnded) res.end();
       });
-      req.on('close', () => {
-        up.destroy();
-      });
       up.pipe(res);
     },
   );
+
+  // IPTV panels count open connections per account (often max 1). req 'close'
+  // fires as soon as a GET is read, before the upstream answers, so it never
+  // released anything; res 'close' fires when the viewer's socket goes away.
+  function dropUpstream() {
+    upstream.destroy();
+  }
+  res.once('close', dropUpstream);
 
   upstream.on('timeout', () => {
     upstream.destroy();
