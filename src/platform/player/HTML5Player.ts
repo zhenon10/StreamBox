@@ -13,6 +13,7 @@ import {
   enginesForLive,
   enginesForUrl,
   formatPlaybackFailure,
+  isWebPageStreamUrl,
   isRemuxUrl,
   resolveMediaFetchUrl,
   type PlaybackEngine,
@@ -146,6 +147,12 @@ export class HTML5Player implements IVideoPlayer {
     await this.recreateVideoElement();
     if (generation !== this.loadGeneration) return;
 
+    if (isWebPageStreamUrl(url)) {
+      this.suppressErrors = false;
+      this.switching = false;
+      throw new Error(formatPlaybackFailure(url, 'web page'));
+    }
+
     const candidates = this.liveMode
       ? buildLivePlaybackCandidates(url)
       : buildPlaybackCandidates(url);
@@ -171,7 +178,8 @@ export class HTML5Player implements IVideoPlayer {
             if (generation !== this.loadGeneration) return;
             // The first attempt is the user's own URL; later candidates are guesses
             // (.m3u8/.mp4 variants) whose errors say nothing about the real cause.
-            firstError ??= error instanceof Error ? error : new Error(String(error));
+            const failure = error instanceof Error ? error : new Error(String(error));
+            if (!firstError?.message.trim()) firstError = failure;
             this.destroyEngines();
             await this.recreateVideoElement();
             if (generation !== this.loadGeneration) return;
@@ -566,7 +574,7 @@ export class HTML5Player implements IVideoPlayer {
 
       const onError = (): void => {
         cleanup();
-        reject(new Error(video.error?.message ?? 'Native playback failed'));
+        reject(new Error(video.error?.message || 'Native playback failed'));
       };
       const onReady = (): void => {
         cleanup();
@@ -592,8 +600,15 @@ export class HTML5Player implements IVideoPlayer {
     if (!video) throw new Error('Player not attached');
 
     if (video.canPlayType('application/vnd.apple.mpegurl') && !import.meta.env.DEV) {
-      await this.loadNativeOnce(resolveMediaFetchUrl(url));
-      return;
+      try {
+        await this.loadNativeOnce(resolveMediaFetchUrl(url));
+        return;
+      } catch (error) {
+        // Recent Chrome/Edge claim native HLS too, but their failures carry no
+        // detail and hls.js copes with streams they reject — so retry there.
+        if (!Hls.isSupported()) throw error;
+        await this.clearVideoSource();
+      }
     }
 
     if (!Hls.isSupported()) throw new Error('HLS.js not supported');
@@ -645,7 +660,9 @@ export class HTML5Player implements IVideoPlayer {
         if (!data.fatal) return;
         if (!settled) {
           window.clearTimeout(timer);
-          finish(() => reject(new Error(data.details || 'HLS playback failed')));
+          const httpStatus = data.response?.code;
+          const detail = `${data.details || 'HLS playback failed'}${httpStatus ? ` ${String(httpStatus)}` : ''}`;
+          finish(() => reject(new Error(detail)));
           return;
         }
         // Mid-playback fatal error: try the in-place hls.js recovery first.

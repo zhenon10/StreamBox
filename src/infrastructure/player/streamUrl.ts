@@ -282,11 +282,22 @@ export function resolveMediaFetchUrl(url: string): string {
   return url;
 }
 
+/** YouTube / Twitch channel pages: playlists list them, but they are not streams. */
+export function isWebPageStreamUrl(url: string): boolean {
+  return /^https?:\/\/(?:www\.|m\.)?(?:youtube\.com|youtu\.be|twitch\.tv)\//i.test(url);
+}
+
 export function formatPlaybackFailure(url: string, cause: string): string {
-  // The stream-proxy answers 502 when the panel returned a web page instead of
-  // media — typically its "connection limit reached" / blocked-account page.
-  if (/HttpStatusCodeInvalid 502\b/.test(cause)) {
-    return 'Yayın sağlayıcısı video göndermedi. Hesabınızın bağlantı limiti dolmuş olabilir (yayın başka bir cihazda açık) ya da hesap engellenmiş olabilir. Biraz bekleyip tekrar deneyin.';
+  if (isWebPageStreamUrl(url)) {
+    return 'Bu kanal bir YouTube / Twitch sayfası; IvPlayer yalnızca doğrudan yayın adreslerini (M3U8, TS, MP4) oynatabilir.';
+  }
+  // The stream-proxy answers 502 when the source returned a web page instead of
+  // media — an IPTV panel's "connection limit reached" page, or a plain web page.
+  if (/(?:HttpStatusCodeInvalid|LoadError) 502\b/.test(cause)) {
+    return 'Yayın adresi video yerine bir web sayfası döndürdü. IPTV hesabınızın bağlantı limiti dolmuş olabilir (yayın başka bir cihazda açık) ya da adres bir yayın değil. Biraz bekleyip tekrar deneyin.';
+  }
+  if (/\b403\b|forbidden/i.test(cause)) {
+    return 'Yayın sunucusu erişimi reddetti (403). Kanal yalnızca belirli ülkelerde açık olabilir; başka bir kanal deneyin.';
   }
   if (isRemuxUrl(url) || needsContainerRemux(url)) {
     return `Bu video tarayıcıda açılamıyor (${cause}). Kaynak MKV/HEVC olabilir — remux başarısız veya codec desteklenmiyor.`;

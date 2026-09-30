@@ -962,6 +962,12 @@ function looksLikeM3u8(target, contentType) {
  * playback silently never starts.
  */
 function rewriteM3u8(body, sourceUrl) {
+  // An IPTV channel list is often named *.m3u8 too. Its entries are absolute
+  // stream URLs the app plays itself; rewriting them into relative proxy paths
+  // broke every channel. Only real HLS playlists carry #EXT-X- stream tags.
+  if (!/^#EXT-X-(?:TARGETDURATION|STREAM-INF|MEDIA-SEQUENCE|MEDIA:|I-FRAME-STREAM-INF|MAP|KEY|PART-INF)/im.test(body)) {
+    return body;
+  }
   const toProxied = (uri) => {
     let abs;
     try {

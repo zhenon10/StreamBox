@@ -29,6 +29,10 @@ function looksLikeM3u8(target: string, contentType: string): boolean {
  * never starts. Mirrors license-server/index.mjs's rewriteM3u8.
  */
 function rewriteM3u8(body: string, sourceUrl: string): string {
+  // Channel lists named *.m3u8 must pass through untouched (see license-server).
+  if (!/^#EXT-X-(?:TARGETDURATION|STREAM-INF|MEDIA-SEQUENCE|MEDIA:|I-FRAME-STREAM-INF|MAP|KEY|PART-INF)/im.test(body)) {
+    return body;
+  }
   const toProxied = (uri: string): string => {
     let abs: string;
     try {
