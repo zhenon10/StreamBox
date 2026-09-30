@@ -111,10 +111,14 @@ export function NavigationProvider({
       const platformCtx = services.resolve(TOKENS.platformContext);
 
       if (graphManager.isModalActive() && key === 'Back') {
-        graphManager.popModal();
+        graphManager.dismissTopModal();
         focusDefault();
         return;
       }
+
+      // While a dialog is open, D-pad focus must not wander to the page behind it.
+      const modalRoots = document.querySelectorAll<HTMLElement>('[data-modal-root]');
+      const focusScope = modalRoots[modalRoots.length - 1] ?? containerRef.current ?? undefined;
 
       // Prefer whatever actually holds native focus — a Focusable button,
       // but also a plain autoFocus'd <input> inside a modal (license/URL
@@ -154,7 +158,7 @@ export function NavigationProvider({
         return;
       }
 
-      const next = findNextFocusable(current, direction, containerRef.current ?? undefined);
+      const next = findNextFocusable(current, direction, focusScope);
       if (next) {
         applyFocus(next);
         currentFocusedRef.current = next;

@@ -29,6 +29,7 @@ export class NavigationGraphManager {
   private readonly listRegistrations = new Map<string, ListRegistration>();
   private activeScreenId: string | null = null;
   private readonly modalStack: string[] = [];
+  private readonly modalDismissers: Array<(() => void) | null> = [];
 
   registerScreen(graph: NavigationScreenGraph): () => void {
     this.screens.set(graph.screenId, graph);
@@ -63,13 +64,26 @@ export class NavigationGraphManager {
     this.wireListNeighbors(updated);
   }
 
-  pushModal(screenId: string): void {
+  /**
+   * `onDismiss` runs only when the remote Back key closes the modal
+   * ({@link dismissTopModal}); it should just hide the dialog — never pop again.
+   */
+  pushModal(screenId: string, onDismiss?: () => void): void {
     this.modalStack.push(screenId);
+    this.modalDismissers.push(onDismiss ?? null);
     this.activeScreenId = screenId;
+  }
+
+  /** Back key on an open modal: pop it and let its owner hide the dialog. */
+  dismissTopModal(): void {
+    const onDismiss = this.modalDismissers[this.modalDismissers.length - 1] ?? null;
+    this.popModal();
+    onDismiss?.();
   }
 
   popModal(): string | null {
     const popped = this.modalStack.pop() ?? null;
+    this.modalDismissers.pop();
     this.activeScreenId =
       this.modalStack.length > 0
         ? (this.modalStack[this.modalStack.length - 1] ?? null)

@@ -1,4 +1,4 @@
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { NavigationProvider } from '@/ui/navigation/NavigationProvider';
 import { HomePage } from '@/ui/pages/HomePage';
@@ -10,6 +10,8 @@ import { AppProviders } from '@/app/AppProviders';
 import { AppErrorBoundary } from '@/ui/components/AppErrorBoundary';
 import { CrashScreen } from '@/ui/components/CrashScreen';
 import { DeveloperOverlay } from '@/ui/dev/DeveloperOverlay';
+import { ExitConfirmDialog } from '@/ui/components/ExitConfirmDialog';
+import { isTvUi } from '@/platform/detectPlatform';
 import { services, TOKENS } from '@/application/di/container';
 
 function routerBasename(): string {
@@ -20,12 +22,27 @@ function routerBasename(): string {
 
 function AppRoutes(): ReactNode {
   const navigate = useNavigate();
+  const [exitDialogOpen, setExitDialogOpen] = useState(false);
+
+  const closeExitDialog = useCallback(() => {
+    services.resolve(TOKENS.navigationGraph).popModal();
+    setExitDialogOpen(false);
+  }, []);
 
   const handleBack = useCallback(() => {
     const basename = routerBasename();
     const path = window.location.pathname;
     const atHome = path === basename || path === `${basename}/` || path === '/';
-    if (atHome) return;
+    if (atHome) {
+      // Back on the first screen must lead out of the app on TV, never dead-end.
+      if (isTvUi()) {
+        services
+          .resolve(TOKENS.navigationGraph)
+          .pushModal('exit-dialog', () => setExitDialogOpen(false));
+        setExitDialogOpen(true);
+      }
+      return;
+    }
     if (window.history.length > 1) {
       navigate(-1);
       return;
@@ -45,6 +62,12 @@ function AppRoutes(): ReactNode {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <DeveloperOverlay />
+      {exitDialogOpen && (
+        <ExitConfirmDialog
+          onConfirm={() => services.resolve(TOKENS.platformContext).platform.exitApp()}
+          onCancel={closeExitDialog}
+        />
+      )}
     </NavigationProvider>
   );
 }

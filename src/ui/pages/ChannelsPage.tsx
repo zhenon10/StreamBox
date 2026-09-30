@@ -120,7 +120,9 @@ export function ChannelsPage(): ReactNode {
 
   const openAdultDialog = useCallback(() => {
     setAdultDialogOpen(true);
-    services.resolve(TOKENS.navigationGraph).pushModal('adult-pin-dialog');
+    services
+      .resolve(TOKENS.navigationGraph)
+      .pushModal('adult-pin-dialog', () => setAdultDialogOpen(false));
   }, []);
 
   const closeAdultDialog = useCallback(() => {

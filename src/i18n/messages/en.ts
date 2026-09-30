@@ -197,4 +197,7 @@ export const en: Messages = {
   'license.network': 'Could not reach the license server',
   'license.unknown': 'An unexpected error occurred',
   'common.back': 'Back',
+  'exit.title': 'Exit IvPlayer?',
+  'exit.confirm': 'Exit',
+  'exit.cancel': 'Cancel',
 };

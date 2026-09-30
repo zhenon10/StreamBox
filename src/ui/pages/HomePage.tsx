@@ -186,6 +186,18 @@ export function HomePage(): ReactNode {
   const [checkingLicense, setCheckingLicense] = useState(false);
   const [deviceCode, setDeviceCode] = useState('');
 
+  const openUrlDialog = useCallback(() => {
+    services.resolve(TOKENS.navigationGraph).pushModal('url-dialog', () => setUrlDialogOpen(false));
+    setUrlDialogOpen(true);
+  }, []);
+
+  const openActivateDialog = useCallback(() => {
+    services
+      .resolve(TOKENS.navigationGraph)
+      .pushModal('activate-dialog', () => setActivateDialogOpen(false));
+    setActivateDialogOpen(true);
+  }, []);
+
   const {
     isLoading,
     loadProgress,
@@ -499,6 +511,8 @@ export function HomePage(): ReactNode {
 
   const handleLoadUrl = useCallback(async () => {
     if (!urlInput.trim()) return;
+    // Pop the modal too, or the next remote Back is swallowed closing a dialog that's gone.
+    services.resolve(TOKENS.navigationGraph).popModal();
     setUrlDialogOpen(false);
     await loadPlaylistUrl(urlInput.trim());
     setUrlInput('');
@@ -580,8 +594,7 @@ export function HomePage(): ReactNode {
       await loadPlaylistUrl(licenseSnapshot.playlistUrl);
       return;
     }
-    services.resolve(TOKENS.navigationGraph).pushModal('url-dialog');
-    setUrlDialogOpen(true);
+    openUrlDialog();
   }, [licenseSnapshot, loadPlaylistUrl]);
 
   const handleMenuAction = (action: MenuItem): void => {
@@ -589,13 +602,11 @@ export function HomePage(): ReactNode {
       void handleCheckLicense();
     } else if (action.action === 'activate') {
       setActivateError(null);
-      services.resolve(TOKENS.navigationGraph).pushModal('activate-dialog');
-      setActivateDialogOpen(true);
+      openActivateDialog();
     } else if (action.action === 'file') {
       void handleLoadFile();
     } else if (action.action === 'url') {
-      services.resolve(TOKENS.navigationGraph).pushModal('url-dialog');
-      setUrlDialogOpen(true);
+      openUrlDialog();
     } else if (action.action === 'navigate') {
       navigate(action.path);
     }
@@ -653,8 +664,7 @@ export function HomePage(): ReactNode {
       return;
     }
     if (!currentPlaylist) {
-      services.resolve(TOKENS.navigationGraph).pushModal('url-dialog');
-      setUrlDialogOpen(true);
+      openUrlDialog();
       return;
     }
     setContentSection(section);
@@ -678,14 +688,12 @@ export function HomePage(): ReactNode {
       onCheckLicense={() => void handleCheckLicense()}
       onBuy={handleBuyOnSite}
       onOpenUrl={() => {
-        services.resolve(TOKENS.navigationGraph).pushModal('url-dialog');
-        setUrlDialogOpen(true);
+        openUrlDialog();
       }}
       onOpenFile={() => void handleLoadFile()}
       onActivate={() => {
         setActivateError(null);
-        services.resolve(TOKENS.navigationGraph).pushModal('activate-dialog');
-        setActivateDialogOpen(true);
+        openActivateDialog();
       }}
       onSettings={() => navigate('/settings')}
       onExit={() => platform.platform.exitApp()}
@@ -876,7 +884,7 @@ export function HomePage(): ReactNode {
         </div>
       )}
       {urlDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+        <div data-modal-root className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
           <div className="url-dialog-panel w-[720px] rounded-2xl bg-surface-800 p-8">
             <h3 className="mb-4 text-3xl font-semibold text-white">{t('url.title')}</h3>
             <input
@@ -927,7 +935,7 @@ export function HomePage(): ReactNode {
       )}
 
       {activateDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+        <div data-modal-root className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
           <div className="activate-dialog-panel w-[760px] rounded-2xl bg-surface-800 p-8">
             <h3 className="mb-2 text-3xl font-semibold text-white">{t('activate.title')}</h3>
             <p className="mb-6 text-lg text-slate-400">

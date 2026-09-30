@@ -23,6 +23,7 @@ import {
   IconVolumeMute,
 } from '@/ui/components/PlayerIcons';
 import { useRouteFocus } from '@/ui/navigation/NavigationProvider';
+import { applyFocus } from '@/ui/navigation/focusEngine';
 import { usePlaylistStore, usePlayerStore } from '@/application/stores/playlistStore';
 import { channelSession } from '@/application/channels/ChannelSessionStore';
 import { classifyChannel } from '@/domain/content/contentSection';
@@ -341,6 +342,9 @@ export function PlayerPage(): ReactNode {
             isLive: classifyChannel(found) === 'live',
           });
           if (cancelled) return;
+          // A load failure is reported through onError and play() still resolves;
+          // clearing here would hide the message and the Retry button.
+          if (usePlayerStore.getState().playbackState === 'error') return;
           setPlaybackError(null);
           perfMonitor.measure(MetricName.PlayerStartupLatency, 'player-start', 'ms');
           await recordWatchHistory(
@@ -489,6 +493,58 @@ export function PlayerPage(): ReactNode {
     seekable,
     zapChannel,
   ]);
+
+  // The remote service captures D-pad / OK / media keys and stops them before
+  // the window listener above sees them, so remote control has to live here.
+  // With the controls hidden: ↑/↓ zap, ←/→ seek (VOD), OK reveals the controls.
+  // With them shown, D-pad focus moves between the buttons (NavigationProvider).
+  useEffect(() => {
+    const remote = services.resolve(TOKENS.platformContext).remote;
+    return remote.subscribe(({ key }) => {
+      if (!controllerRef.current || key === 'Back') return;
+      const hidden = !usePlayerStore.getState().showOverlay;
+
+      switch (key) {
+        case 'Play':
+          controllerRef.current.resume();
+          bumpOverlay();
+          return;
+        case 'Pause':
+          controllerRef.current.pause();
+          bumpOverlay();
+          return;
+        case 'MediaPlayPause':
+          handlePlayPause();
+          return;
+        case 'Stop':
+          handleStop();
+          return;
+        default:
+          break;
+      }
+
+      // Controls visible but nothing focused (e.g. right after a zap re-rendered them).
+      const unfocused = document.activeElement === null || document.activeElement === document.body;
+      if (!hidden && !unfocused) {
+        bumpOverlay();
+        return;
+      }
+      if (key === 'ArrowUp' || key === 'ArrowDown') {
+        zapChannel(key === 'ArrowUp' ? -1 : 1);
+        return;
+      }
+      if ((key === 'ArrowLeft' || key === 'ArrowRight') && seekable) {
+        handleSkip(key === 'ArrowLeft' ? -30 : 30);
+        bumpOverlay();
+        return;
+      }
+      bumpOverlay();
+      requestAnimationFrame(() => {
+        const playPause = document.querySelector<HTMLElement>('[data-focus-id="player-playpause"]');
+        if (playPause) applyFocus(playPause);
+      });
+    });
+  }, [bumpOverlay, handlePlayPause, handleSkip, handleStop, seekable, zapChannel]);
 
   if (licenseChecking || !licensed) return null;
   if (!channel) return null;

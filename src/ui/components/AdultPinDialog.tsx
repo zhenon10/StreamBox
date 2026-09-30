@@ -82,7 +82,7 @@ export function AdultPinDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+    <div data-modal-root className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
       <div className="adult-pin-panel w-[520px] max-w-[92vw] rounded-2xl bg-surface-800 p-8">
         <h3 className="mb-2 text-3xl font-semibold text-white">
           {mode === 'set' ? t('adultPin.titleSet') : t('adultPin.titleEnter')}

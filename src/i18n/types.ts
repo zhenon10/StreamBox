@@ -191,6 +191,9 @@ export type MessageKey =
   | 'license.not_found'
   | 'license.network'
   | 'license.unknown'
-  | 'common.back';
+  | 'common.back'
+  | 'exit.title'
+  | 'exit.confirm'
+  | 'exit.cancel';
 
 export type Messages = Record<MessageKey, string>;

@@ -196,4 +196,7 @@ export const tr: Messages = {
   'license.network': 'Lisans sunucusuna bağlanılamadı',
   'license.unknown': 'Beklenmeyen bir hata oluştu',
   'common.back': 'Geri',
+  'exit.title': 'IvPlayer’dan çıkılsın mı?',
+  'exit.confirm': 'Çıkış',
+  'exit.cancel': 'İptal',
 };
