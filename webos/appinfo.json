@@ -1,6 +1,6 @@
 {
   "id": "com.ivplayer.iptv",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "vendor": "IvPlayer",
   "type": "web",
   "main": "index.html",
@@ -9,8 +9,8 @@
   "icon": "icon.png",
   "largeIcon": "icon-large.png",
   "splashBackground": "splash.png",
-  "bgColor": "#07090f",
-  "iconColor": "#e52d27",
+  "bgColor": "#0b1226",
+  "iconColor": "#0b1226",
   "resolution": "1920x1080",
   "disableBackHistoryAPI": true,
   "handlesRelaunch": true,

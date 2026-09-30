@@ -6,7 +6,8 @@
  *   webos/splash.png         1920×1080
  *   webos/store/store-icon-400.png  400×400 (Seller Lounge)
  *
- * Source: brand/ivplayer-app-icon.jpg|png (LG store artwork)
+ * Source: brand/ivplayer-app-icon-flat.png (square, solid background),
+ *   falling back to brand/ivplayer-app-icon.jpg|png
  * Resize: Windows System.Drawing (no extra npm deps).
  */
 import { mkdirSync, existsSync, writeFileSync, readdirSync } from 'node:fs';
@@ -22,10 +23,12 @@ const brandDir = join(root, 'brand');
 const webosDir = join(root, 'webos');
 const storeDir = join(webosDir, 'store');
 
-const BG = '#07090f';
+// Must equal appinfo.json iconColor: LG QA rejects icons whose solid background
+// differs from the launcher tile colour (and icons with rounded corners).
+const BG = '#0b1226';
 
 function findSource() {
-  const preferred = ['ivplayer-app-icon.jpg', 'ivplayer-app-icon.jpeg', 'ivplayer-app-icon.png'];
+  const preferred = ['ivplayer-app-icon-flat.png', 'ivplayer-app-icon.jpg', 'ivplayer-app-icon.jpeg', 'ivplayer-app-icon.png'];
   for (const name of preferred) {
     const p = join(brandDir, name);
     if (existsSync(p)) return p;
@@ -95,6 +98,17 @@ function Save-SquarePng([string]$srcPath, [string]$destPath, [int]$size) {
       $g.DrawImage($src, $x, $y, $w, $h)
     } finally {
       $g.Dispose()
+    }
+    # Resampling leaves the background a few units off; LG QA checks for a
+    # solid colour, so snap near-background pixels back to it exactly.
+    $bg = [System.Drawing.ColorTranslator]::FromHtml('${BG}')
+    for ($py = 0; $py -lt $size; $py++) {
+      for ($px = 0; $px -lt $size; $px++) {
+        $c = $bmp.GetPixel($px, $py)
+        if ([Math]::Abs($c.R - $bg.R) -le 4 -and [Math]::Abs($c.G - $bg.G) -le 4 -and [Math]::Abs($c.B - $bg.B) -le 4) {
+          $bmp.SetPixel($px, $py, $bg)
+        }
+      }
     }
     $dir = Split-Path -Parent $destPath
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
